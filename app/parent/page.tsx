@@ -90,7 +90,7 @@ export default function ParentPage() {
                   boxShadow: 'rgba(0,0,0,0.04) 0px 4px 18px',
                   fontSize: '12px', fontFamily: 'inherit',
                 }}
-                formatter={(v: number) => [`${v}分`]}
+                formatter={(v) => [`${v}分`]}
               />
               <Legend wrapperStyle={{ fontSize: '12px', fontFamily: 'inherit', color: '#615d59' }} />
               {Object.entries(CHART_COLORS).map(([cat, color]) => (
