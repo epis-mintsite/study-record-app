@@ -80,7 +80,38 @@ export default function WeeklyPage() {
     try {
       const { default: html2canvas } = await import('html2canvas');
       const { default: jsPDF } = await import('jspdf');
-      const canvas = await html2canvas(gridRef.current, { scale: 2, useCORS: true });
+
+      // スマホ対応: overflow を一時解除して全幅をキャプチャ
+      type SavedStyle = { el: HTMLElement; overflow: string; overflowX: string };
+      const saved: SavedStyle[] = [];
+      const releaseOverflow = (el: HTMLElement) => {
+        const cs = window.getComputedStyle(el);
+        if (cs.overflow === 'hidden' || cs.overflowX === 'hidden' || cs.overflowX === 'auto' || cs.overflowX === 'scroll') {
+          saved.push({ el, overflow: el.style.overflow, overflowX: el.style.overflowX });
+          el.style.overflow = 'visible';
+          el.style.overflowX = 'visible';
+        }
+        Array.from(el.children).forEach(c => releaseOverflow(c as HTMLElement));
+      };
+      releaseOverflow(gridRef.current);
+
+      const fullWidth = gridRef.current.scrollWidth;
+      const fullHeight = gridRef.current.scrollHeight;
+
+      const canvas = await html2canvas(gridRef.current, {
+        scale: 2,
+        useCORS: true,
+        width: fullWidth,
+        height: fullHeight,
+        windowWidth: fullWidth,
+      });
+
+      // スタイルを元に戻す
+      saved.forEach(({ el, overflow, overflowX }) => {
+        el.style.overflow = overflow;
+        el.style.overflowX = overflowX;
+      });
+
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       const pdfWidth = pdf.internal.pageSize.getWidth();
