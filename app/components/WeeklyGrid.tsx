@@ -234,16 +234,26 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
       )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-        <button
-          onClick={() => setShowMinutes(v => !v)}
-          style={{
-            background: 'none', border: 'none', fontSize: '12px', fontWeight: 500,
-            color: '#a39e98', cursor: 'pointer', padding: '2px 0',
-            fontFamily: 'inherit', textDecoration: 'underline',
-          }}
-        >
-          {showMinutes ? '時間表示に切替' : '分表示に切替'}
-        </button>
+        <div style={{
+          display: 'inline-flex', borderRadius: '6px',
+          border: '1px solid rgba(0,0,0,0.12)', overflow: 'hidden',
+        }}>
+          {([['時間', false], ['分', true]] as [string, boolean][]).map(([label, val]) => (
+            <button
+              key={label}
+              onClick={() => setShowMinutes(val)}
+              style={{
+                padding: '4px 12px', fontSize: '12px', fontWeight: showMinutes === val ? 600 : 400,
+                color: showMinutes === val ? 'rgba(0,0,0,0.9)' : '#a39e98',
+                background: showMinutes === val ? 'rgba(0,0,0,0.06)' : 'transparent',
+                border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                transition: 'background 0.1s, color 0.1s',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div
@@ -313,7 +323,7 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
                   display: 'grid',
                   gridTemplateColumns: `${COL_TIME}px repeat(7, 1fr)`,
                   height: '32px',
-                  borderBottom: isHour ? borderHour : borderWhisper,
+                  borderBottom: isHour ? borderWhisper : borderHour,
                 }}
               >
                 {/* Time label */}
