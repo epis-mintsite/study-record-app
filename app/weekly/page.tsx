@@ -141,8 +141,10 @@ export default function WeeklyPage() {
           name: newCatName.trim(), color: newCatColor,
         }]);
       } else {
-        const saved = await saveCustomCategory(user.id, newCatName.trim(), newCatColor);
-        setCustomCategories(prev => [...prev, saved]);
+        await saveCustomCategory(user.id, newCatName.trim(), newCatColor);
+        // 保存後にサーバーから全カテゴリを再取得（iOS Safari 対応）
+        const cats = await getCustomCategories(user.id);
+        setCustomCategories(cats);
       }
       setNewCatName('');
       setShowCategoryModal(false);

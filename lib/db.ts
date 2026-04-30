@@ -53,16 +53,15 @@ export async function getCustomCategories(userId: string): Promise<CustomCategor
   return (data ?? []).map(row => ({ id: row.id, userId: row.user_id, name: row.name, color: row.color }));
 }
 
-export async function saveCustomCategory(userId: string, name: string, color: string): Promise<CustomCategory> {
+export async function saveCustomCategory(userId: string, name: string, color: string): Promise<void> {
   if (!isSupabaseConfigured()) throw new Error('Supabaseが設定されていません。');
   const supabase = createClient();
-  const { data, error } = await supabase
+  // iOS Safari で insert().select().single() が "Load failed" になるため
+  // INSERT のみ実行し、呼び出し元で getCustomCategories() を使って再取得する
+  const { error } = await supabase
     .from('categories')
-    .insert({ user_id: userId, name, color })
-    .select()
-    .single();
+    .insert({ user_id: userId, name, color });
   if (error) throw new Error(`科目保存エラー: ${error.message}`);
-  return { id: data.id, userId: data.user_id, name: data.name, color: data.color };
 }
 
 export async function deleteCustomCategory(id: string): Promise<void> {
