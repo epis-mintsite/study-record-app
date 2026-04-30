@@ -71,3 +71,15 @@ export async function deleteCustomCategory(id: string): Promise<void> {
   const { error } = await supabase.from('categories').delete().eq('id', id);
   if (error) throw new Error(`科目削除エラー: ${error.message}`);
 }
+
+export async function getUserRole(userId: string): Promise<'student' | 'parent' | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', userId)
+    .single();
+  if (error) return null;
+  return data?.role as 'student' | 'parent' | null;
+}

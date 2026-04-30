@@ -4,8 +4,15 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { BookOpen, Mic, Users, LogOut } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
+import { getUserRole } from '@/lib/db';
+import { useState, useEffect } from 'react';
 
-const navItems = [
+const studentNavItems = [
+  { href: '/weekly', label: '週間表', icon: BookOpen },
+  { href: '/record', label: '記録する', icon: Mic },
+];
+
+const parentNavItems = [
   { href: '/weekly', label: '週間表', icon: BookOpen },
   { href: '/record', label: '記録する', icon: Mic },
   { href: '/parent', label: '保護者', icon: Users },
@@ -15,11 +22,19 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const [role, setRole] = useState<'student' | 'parent' | null>(null);
+
+  useEffect(() => {
+    if (!user) { setRole(null); return; }
+    getUserRole(user.id).then(r => setRole(r));
+  }, [user]);
 
   async function handleSignOut() {
     await signOut();
     router.push('/login');
   }
+
+  const navItems = role === 'parent' ? parentNavItems : studentNavItems;
 
   return (
     <nav style={{ background: '#ffffff', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>

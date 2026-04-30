@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Navbar from '@/app/components/Navbar';
 import WeeklyGrid from '@/app/components/WeeklyGrid';
 import { MOCK_RECORDS, getWeekDates, formatDate } from '@/lib/mockData';
 import { CustomCategory } from '@/lib/types';
+import { useAuth } from '@/lib/useAuth';
+import { getUserRole } from '@/lib/db';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
@@ -31,9 +34,24 @@ function buildMonthlyChartData() {
 }
 
 export default function ParentPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [roleChecked, setRoleChecked] = useState(false);
   const [referenceDate, setReferenceDate] = useState(new Date());
   const weekDates = getWeekDates(referenceDate);
   const [chartData] = useState(buildMonthlyChartData);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) { router.replace('/login'); return; }
+    getUserRole(user.id).then(role => {
+      if (role !== 'parent') {
+        router.replace('/weekly');
+      } else {
+        setRoleChecked(true);
+      }
+    });
+  }, [user, authLoading, router]);
 
   function prevWeek() { const d = new Date(referenceDate); d.setDate(d.getDate() - 7); setReferenceDate(d); }
   function nextWeek() { const d = new Date(referenceDate); d.setDate(d.getDate() + 7); setReferenceDate(d); }
@@ -44,6 +62,14 @@ export default function ParentPage() {
   })();
 
   const filteredRecords = MOCK_RECORDS.filter(r => weekDates.some(d => formatDate(d) === r.date));
+
+  if (authLoading || !roleChecked) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff' }}>
+        <Loader2 size={24} color="#a39e98" className="animate-spin" />
+      </div>
+    );
+  }
 
   const cardStyle: React.CSSProperties = {
     background: '#ffffff', border: '1px solid rgba(0,0,0,0.1)',
