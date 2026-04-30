@@ -23,6 +23,7 @@ export default function ReviewPage() {
   const [loading,      setLoading]      = useState(false);
   const [saving,       setSaving]       = useState(false);
   const [saved,        setSaved]        = useState(false);
+  const [aiLoading,    setAiLoading]    = useState<string | null>(null);
 
   const weekLabel = (() => {
     const s = weekDates[0], e = weekDates[6];
@@ -70,6 +71,26 @@ export default function ReviewPage() {
     return h > 0 ? `${h}時間${m > 0 ? m + '分' : ''}` : `${m}分`;
   }
 
+  async function handleAI(section: 'review' | 'improvement' | 'testStrategy') {
+    setAiLoading(section);
+    try {
+      const res = await fetch('/api/ai/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section, studySummary: summary, totalMin, weekLabel }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'AI生成に失敗しました。');
+      if (section === 'review')       setReviewText(data.text);
+      if (section === 'improvement')  setImprovement(data.text);
+      if (section === 'testStrategy') setTestStrategy(data.text);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'AI生成に失敗しました。');
+    } finally {
+      setAiLoading(null);
+    }
+  }
+
   async function handleSave() {
     if (!user) return;
     setSaving(true);
@@ -108,12 +129,17 @@ export default function ReviewPage() {
     lineHeight: 1.7, boxSizing: 'border-box', minHeight: '120px',
     background: isDemo ? '#fafafa' : '#ffffff',
   };
-  const aiBtn: React.CSSProperties = {
+  const aiBtn = (section: string): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: '4px',
     padding: '4px 10px', borderRadius: '6px',
-    border: '1px solid rgba(0,0,0,0.12)', background: '#FAFAFA',
-    fontSize: '12px', color: '#a39e98', cursor: 'not-allowed', fontFamily: 'inherit',
-  };
+    border: '1px solid rgba(0,0,0,0.12)',
+    background: aiLoading === section ? '#EFF6FF' : '#FAFAFA',
+    fontSize: '12px',
+    color: aiLoading === section ? '#2563EB' : '#6B7280',
+    cursor: aiLoading ? 'default' : 'pointer',
+    fontFamily: 'inherit',
+    transition: 'all 0.1s',
+  });
 
   if (authLoading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -121,7 +147,7 @@ export default function ReviewPage() {
     </div>
   );
 
-  const sections: { key: string; label: string; value: string; setter: (v: string) => void; placeholder: string }[] = [
+  const sections: { key: 'review' | 'improvement' | 'testStrategy'; label: string; value: string; setter: (v: string) => void; placeholder: string }[] = [
     {
       key: 'review', label: '📊 今週の振返り',
       value: reviewText, setter: setReviewText,
@@ -133,7 +159,7 @@ export default function ReviewPage() {
       placeholder: '来週取り組みたいことや改善点を書きましょう。\n例：\n1. 毎日理科を30分確保する\n2. 数学の応用問題を週3回解く',
     },
     {
-      key: 'test', label: '📝 テスト対策',
+      key: 'testStrategy', label: '📝 テスト対策',
       value: testStrategy, setter: setTestStrategy,
       placeholder: '直近のテストや検定に向けた対策を書きましょう。\n例：中間テストまで3週間。数学の計算問題を毎日練習し、英語は長文読解を週2回する。',
     },
@@ -199,9 +225,18 @@ export default function ReviewPage() {
               <div key={sec.key} style={cardStyle}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(0,0,0,0.9)', margin: 0 }}>{sec.label}</h2>
-                  <button style={aiBtn} disabled title="AI機能は近日公開予定">
-                    <Sparkles size={12} /> AIに下書きを作ってもらう
-                  </button>
+                  {!isDemo && (
+                    <button
+                      onClick={() => handleAI(sec.key)}
+                      disabled={aiLoading !== null}
+                      style={aiBtn(sec.key)}
+                    >
+                      {aiLoading === sec.key
+                        ? <><Loader2 size={12} className="animate-spin" /> 生成中...</>
+                        : <><Sparkles size={12} /> AIに下書きを作ってもらう</>
+                      }
+                    </button>
+                  )}
                 </div>
                 <textarea
                   value={sec.value}
