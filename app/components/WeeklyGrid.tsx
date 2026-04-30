@@ -247,7 +247,6 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
       </div>
 
       <div
-        className="weekly-grid-wrapper"
         style={{
           border: '1px solid rgba(0,0,0,0.1)',
           borderRadius: '12px',
@@ -256,6 +255,9 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
           overflow: 'hidden',
         }}
       >
+        {/* Horizontal scroll wrapper for mobile/tablet */}
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+
         {/* Header row */}
         <div
           style={{
@@ -263,7 +265,7 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
             gridTemplateColumns: `${COL_TIME}px repeat(7, 1fr)`,
             borderBottom: '1px solid rgba(0,0,0,0.1)',
             background: '#ffffff',
-            minWidth: '640px',
+            minWidth: '560px',
           }}
         >
           <div style={{ padding: '10px 8px', borderRight: borderWhisper }} />
@@ -299,7 +301,7 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
         </div>
 
         {/* Time grid */}
-        <div style={{ minWidth: '640px' }}>
+        <div style={{ minWidth: '560px' }}>
           {Array.from({ length: TOTAL_SLOTS }, (_, rowIdx) => {
             const timeLabel = slotIndexToTime(rowIdx);
             const isHour = rowIdx % 2 === 0;
@@ -379,7 +381,7 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
         </div>
 
         {/* Totals section */}
-        <div style={{ borderTop: '2px solid rgba(0,0,0,0.12)', minWidth: '640px' }}>
+        <div style={{ borderTop: '2px solid rgba(0,0,0,0.12)', minWidth: '560px' }}>
           {/* Sub-header */}
           <div
             style={{
@@ -464,6 +466,7 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
             </div>
           </div>
         </div>
+        </div> {/* end scroll wrapper */}
       </div>
     </div>
   );
