@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
@@ -187,6 +188,13 @@ export default function LoginPage() {
             ) : mode === 'login' ? 'ログイン' : 'アカウント作成'}
           </button>
         </form>
+
+        {/* Guide link */}
+        <div style={{ textAlign: 'center', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+          <Link href="/guide" style={{ fontSize: '13px', color: '#0075de', textDecoration: 'none', fontWeight: 500 }}>
+            📖 使い方ガイドを確認する →
+          </Link>
+        </div>
       </div>
     </div>
   );
