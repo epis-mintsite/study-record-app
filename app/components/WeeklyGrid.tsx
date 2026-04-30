@@ -216,8 +216,8 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
   const weeklyGrandTotal = weekDates.reduce((s, d) => s + getDayGrandTotal(formatDate(d)), 0);
 
   const COL_TIME = 58;
-  const borderWhisper = '1px solid rgba(0,0,0,0.08)';
-  const borderHour = '1px solid rgba(0,0,0,0.14)';
+  const borderWhisper = '1px solid rgba(0,0,0,0.15)';
+  const borderHour = '1px solid rgba(0,0,0,0.30)';
 
   return (
     <div>
@@ -258,7 +258,7 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
 
       <div
         style={{
-          border: '1px solid rgba(0,0,0,0.1)',
+          border: '1px solid rgba(0,0,0,0.20)',
           borderRadius: '12px',
           background: '#ffffff',
           boxShadow: 'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.85px, rgba(0,0,0,0.02) 0px 0.8px 2.93px, rgba(0,0,0,0.01) 0px 0.175px 1.04px',
@@ -273,7 +273,7 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
           style={{
             display: 'grid',
             gridTemplateColumns: `${COL_TIME}px repeat(7, 1fr)`,
-            borderBottom: '1px solid rgba(0,0,0,0.1)',
+            borderBottom: '1px solid rgba(0,0,0,0.20)',
             background: '#ffffff',
             minWidth: '560px',
           }}
@@ -302,7 +302,7 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
                 }}>
                   {DAY_LABELS[i]}
                 </div>
-                <div style={{ fontSize: '11px', color: '#a39e98', marginTop: '1px' }}>
+                <div style={{ fontSize: '11px', color: '#5a5652', marginTop: '1px' }}>
                   {date.getMonth() + 1}/{date.getDate()}
                 </div>
               </div>
@@ -331,8 +331,8 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
                   style={{
                     display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
                     paddingRight: '8px', paddingTop: '3px',
-                    borderRight: '1px solid rgba(0,0,0,0.1)',
-                    fontSize: '10px', color: '#a39e98', fontWeight: 500,
+                    borderRight: '1px solid rgba(0,0,0,0.22)',
+                    fontSize: '10px', color: '#5a5652', fontWeight: 500,
                     userSelect: 'none',
                   }}
                 >
@@ -391,14 +391,14 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
         </div>
 
         {/* Totals section */}
-        <div style={{ borderTop: '2px solid rgba(0,0,0,0.12)', minWidth: '560px' }}>
+        <div style={{ borderTop: '2px solid rgba(0,0,0,0.25)', minWidth: '560px' }}>
           {/* Sub-header */}
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: `${COL_TIME}px repeat(7, 1fr) 72px`,
               background: '#f6f5f4',
-              borderBottom: '1px solid rgba(0,0,0,0.08)',
+              borderBottom: '1px solid rgba(0,0,0,0.18)',
             }}
           >
             <div style={{ padding: '7px 8px', fontSize: '11px', fontWeight: 600, color: '#615d59', borderRight: borderWhisper }}>科目</div>
@@ -419,7 +419,7 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
                 style={{
                   display: 'grid',
                   gridTemplateColumns: `${COL_TIME}px repeat(7, 1fr) 72px`,
-                  borderBottom: '1px solid rgba(0,0,0,0.06)',
+                  borderBottom: '1px solid rgba(0,0,0,0.14)',
                 }}
               >
                 <div style={{
