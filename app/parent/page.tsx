@@ -1,103 +1,192 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Navbar from '@/app/components/Navbar';
 import WeeklyGrid from '@/app/components/WeeklyGrid';
-import { MOCK_RECORDS, getWeekDates, formatDate } from '@/lib/mockData';
-import { CustomCategory } from '@/lib/types';
+import { getWeekDates, formatDate } from '@/lib/mockData';
+import { StudyRecord, TestResult, WeeklyReview, TEST_TYPE_COLORS } from '@/lib/types';
 import { useAuth } from '@/lib/useAuth';
-import { getUserRole } from '@/lib/db';
+import {
+  getUserRole, getLinkedStudentId, getStudentProfile,
+  getStudyRecords, getTestResults, getWeeklyReview,
+} from '@/lib/db';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-
-const CUSTOM_CATS: CustomCategory[] = [
-  { id: '1', userId: 'mock-user', name: 'ピアノ', color: '#FEF9C3' },
-  { id: '2', userId: 'mock-user', name: 'ダンス', color: '#FEE2E2' },
-];
 
 const CHART_COLORS: Record<string, string> = {
   '国語': '#C084FC', '数学': '#38BDF8', '英語': '#F472B6',
   '理科': '#4ADE80', '社会': '#FB923C',
 };
 
-function buildMonthlyChartData() {
-  return Array.from({ length: 4 }, (_, w) => {
-    const entry: Record<string, number | string> = { name: `第${w + 1}週` };
-    Object.keys(CHART_COLORS).forEach(cat => {
-      entry[cat] = Math.floor(Math.random() * 180 + 60);
-    });
-    return entry;
-  });
+function pct(score?: number, max?: number) {
+  if (score == null || !max) return null;
+  return Math.round((score / max) * 100);
+}
+
+function fmtTime(min: number) {
+  const h = Math.floor(min / 60), m = min % 60;
+  return h > 0 ? `${h}時間${m > 0 ? m + '分' : ''}` : `${m}分`;
 }
 
 export default function ParentPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [roleChecked, setRoleChecked] = useState(false);
+
+  const [roleChecked,  setRoleChecked]  = useState(false);
+  const [studentId,    setStudentId]    = useState<string | null>(null);
+  const [studentName,  setStudentName]  = useState<string>('');
+  const [dataLoading,  setDataLoading]  = useState(false);
+
+  // week nav
   const [referenceDate, setReferenceDate] = useState(new Date());
   const weekDates = getWeekDates(referenceDate);
-  const [chartData] = useState(buildMonthlyChartData);
-
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) { router.replace('/login'); return; }
-    getUserRole(user.id).then(role => {
-      if (role !== 'parent') {
-        router.replace('/weekly');
-      } else {
-        setRoleChecked(true);
-      }
-    });
-  }, [user, authLoading, router]);
-
-  function prevWeek() { const d = new Date(referenceDate); d.setDate(d.getDate() - 7); setReferenceDate(d); }
-  function nextWeek() { const d = new Date(referenceDate); d.setDate(d.getDate() + 7); setReferenceDate(d); }
-
+  const weekStart = formatDate(weekDates[0]);
   const weekLabel = (() => {
     const s = weekDates[0], e = weekDates[6];
     return `${s.getFullYear()}年${s.getMonth() + 1}月${s.getDate()}日 〜 ${e.getMonth() + 1}月${e.getDate()}日`;
   })();
 
-  const filteredRecords = MOCK_RECORDS.filter(r => weekDates.some(d => formatDate(d) === r.date));
+  // data
+  const [weekRecords,  setWeekRecords]  = useState<StudyRecord[]>([]);
+  const [testResults,  setTestResults]  = useState<TestResult[]>([]);
+  const [review,       setReview]       = useState<WeeklyReview | null>(null);
+  const [monthlyData,  setMonthlyData]  = useState<Record<string, string | number>[]>([]);
 
-  if (authLoading || !roleChecked) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff' }}>
-        <Loader2 size={24} color="#a39e98" className="animate-spin" />
-      </div>
-    );
-  }
+  // tabs
+  const [tab, setTab] = useState<'weekly' | 'tests' | 'review'>('weekly');
 
+  // ---- Auth & role check ----
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) { router.replace('/login'); return; }
+    getUserRole(user.id).then(async role => {
+      if (role !== 'parent') { router.replace('/weekly'); return; }
+      const sid = await getLinkedStudentId(user.id);
+      setStudentId(sid);
+      if (sid) {
+        const profile = await getStudentProfile(sid);
+        setStudentName(profile?.name ?? '');
+      }
+      setRoleChecked(true);
+    });
+  }, [user, authLoading, router]);
+
+  // ---- Load week data ----
+  const loadWeekData = useCallback(async (sid: string, dates: Date[]) => {
+    setDataLoading(true);
+    try {
+      const dateStrings = dates.map(formatDate);
+      const records = await getStudyRecords(sid, dateStrings);
+      setWeekRecords(records);
+    } catch (e) { console.error(e); }
+    finally { setDataLoading(false); }
+  }, []);
+
+  // ---- Load test results & review (once per student) ----
+  const loadStaticData = useCallback(async (sid: string) => {
+    try {
+      const [tests, rev] = await Promise.all([
+        getTestResults(sid),
+        getWeeklyReview(sid, weekStart),
+      ]);
+      setTestResults(tests);
+      setReview(rev);
+    } catch (e) { console.error(e); }
+  }, [weekStart]);
+
+  // ---- Load monthly chart data (last 4 weeks) ----
+  const loadMonthlyData = useCallback(async (sid: string) => {
+    try {
+      const today = new Date();
+      const allDates: string[] = [];
+      for (let i = 27; i >= 0; i--) {
+        const d = new Date(today); d.setDate(d.getDate() - i);
+        allDates.push(formatDate(d));
+      }
+      const records = await getStudyRecords(sid, allDates);
+
+      const weeks = [3, 2, 1, 0].map(wk => {
+        const startIdx = wk * 7;
+        const slice = allDates.slice(startIdx, startIdx + 7);
+        const entry: Record<string, string | number> = { name: `第${4 - wk}週` };
+        for (const r of records.filter(r => slice.includes(r.date))) {
+          for (const [cat, min] of Object.entries(r.dailyTotals)) {
+            entry[cat] = ((entry[cat] as number) || 0) + (min as number);
+          }
+        }
+        return entry;
+      });
+      setMonthlyData(weeks);
+    } catch (e) { console.error(e); }
+  }, []);
+
+  useEffect(() => {
+    if (!roleChecked || !studentId) return;
+    loadWeekData(studentId, weekDates);
+    loadStaticData(studentId);
+    loadMonthlyData(studentId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleChecked, studentId, referenceDate]);
+
+  // ---- Derived ----
+  const chartSubjects = Array.from(new Set(
+    monthlyData.flatMap(d => Object.keys(d).filter(k => k !== 'name' && CHART_COLORS[k]))
+  ));
+
+  // ---- Styles ----
   const cardStyle: React.CSSProperties = {
-    background: '#ffffff', border: '1px solid rgba(0,0,0,0.1)',
+    background: '#ffffff', border: '1px solid rgba(0,0,0,0.12)',
     borderRadius: '12px', padding: '24px',
-    boxShadow: 'rgba(0,0,0,0.04) 0px 4px 18px, rgba(0,0,0,0.027) 0px 2.025px 7.85px, rgba(0,0,0,0.02) 0px 0.8px 2.93px',
+    boxShadow: 'rgba(0,0,0,0.04) 0px 4px 18px',
   };
+  const navBtn: React.CSSProperties = {
+    width: '32px', height: '32px', borderRadius: '4px',
+    border: '1px solid rgba(0,0,0,0.12)', background: '#ffffff',
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#615d59',
+  };
+
+  if (authLoading || !roleChecked) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff' }}>
+      <Loader2 size={24} color="#a39e98" className="animate-spin" />
+    </div>
+  );
+
+  // No linked student
+  if (!studentId) return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#ffffff' }}>
+      <Navbar />
+      <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
+        <div style={{ textAlign: 'center', color: '#615d59' }}>
+          <div style={{ fontSize: '32px', marginBottom: '12px' }}>👨‍👧</div>
+          <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>生徒が紐付けされていません</div>
+          <div style={{ fontSize: '13px', color: '#a39e98' }}>管理者にお問い合わせください。</div>
+        </div>
+      </main>
+    </div>
+  );
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#ffffff' }}>
       <Navbar />
       <main style={{ flex: 1, maxWidth: '1200px', margin: '0 auto', width: '100%', padding: '32px 24px 64px' }}>
 
-        {/* Page header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '28px', flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ marginBottom: '6px' }}>
-              <span style={{
-                display: 'inline-block', padding: '3px 10px', borderRadius: '9999px',
-                background: '#f2f9ff', fontSize: '12px', fontWeight: 600, color: '#097fe8',
-                letterSpacing: '0.125px',
-              }}>
-                閲覧専用
+        {/* Header */}
+        <div style={{ marginBottom: '28px' }}>
+          <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '9999px', background: '#f2f9ff', fontSize: '12px', fontWeight: 600, color: '#097fe8', marginBottom: '8px' }}>
+            閲覧専用
+          </span>
+          <h1 style={{ fontSize: '26px', fontWeight: 700, color: 'rgba(0,0,0,0.95)', letterSpacing: '-0.625px', margin: 0 }}>
+            保護者ダッシュボード
+            {studentName && (
+              <span style={{ fontSize: '16px', fontWeight: 500, color: '#615d59', marginLeft: '12px' }}>
+                {studentName} さん
               </span>
-            </div>
-            <h1 style={{ fontSize: '26px', fontWeight: 700, color: 'rgba(0,0,0,0.95)', letterSpacing: '-0.625px', margin: 0 }}>
-              保護者ダッシュボード
-            </h1>
-          </div>
+            )}
+          </h1>
         </div>
 
         {/* Monthly chart */}
@@ -106,60 +195,180 @@ export default function ParentPage() {
             月間科目別学習時間
             <span style={{ fontSize: '12px', fontWeight: 400, color: '#a39e98', marginLeft: '8px' }}>（分）</span>
           </h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData} margin={{ top: 5, right: 16, left: 0, bottom: 5 }}>
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#615d59', fontFamily: 'inherit' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#a39e98', fontFamily: 'inherit' }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)',
-                  boxShadow: 'rgba(0,0,0,0.04) 0px 4px 18px',
-                  fontSize: '12px', fontFamily: 'inherit',
-                }}
-                formatter={(v) => [`${v}分`]}
-              />
-              <Legend wrapperStyle={{ fontSize: '12px', fontFamily: 'inherit', color: '#615d59' }} />
-              {Object.entries(CHART_COLORS).map(([cat, color]) => (
-                <Bar key={cat} dataKey={cat} fill={color} stackId="a" radius={[0, 0, 0, 0]} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+          {monthlyData.length === 0 ? (
+            <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a39e98', fontSize: '13px' }}>
+              学習データがありません
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={monthlyData} margin={{ top: 5, right: 16, left: 0, bottom: 5 }}>
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#615d59', fontFamily: 'inherit' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#a39e98', fontFamily: 'inherit' }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ borderRadius: '8px', border: '1px solid rgba(0,0,0,0.1)', fontSize: '12px', fontFamily: 'inherit' }}
+                  formatter={(v) => [`${v}分`]}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px', fontFamily: 'inherit', color: '#615d59' }} />
+                {(chartSubjects.length > 0 ? chartSubjects : Object.keys(CHART_COLORS)).map(cat => (
+                  <Bar key={cat} dataKey={cat} fill={CHART_COLORS[cat] ?? '#ccc'} stackId="a" radius={[0, 0, 0, 0]} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
-        {/* Week navigation */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-          <button
-            onClick={prevWeek} aria-label="前の週"
-            style={{
-              width: '32px', height: '32px', borderRadius: '4px',
-              border: '1px solid rgba(0,0,0,0.1)', background: '#ffffff',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#615d59',
-            }}
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <span style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(0,0,0,0.95)', letterSpacing: '-0.2px' }}>
-            {weekLabel}
-          </span>
-          <button
-            onClick={nextWeek} aria-label="次の週"
-            style={{
-              width: '32px', height: '32px', borderRadius: '4px',
-              border: '1px solid rgba(0,0,0,0.1)', background: '#ffffff',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#615d59',
-            }}
-          >
-            <ChevronRight size={16} />
-          </button>
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '0' }}>
+          {([['weekly', '週間表'], ['tests', '成績'], ['review', '振返り']] as const).map(([key, label]) => (
+            <button key={key} onClick={() => setTab(key)} style={{
+              padding: '8px 20px', fontSize: '14px', fontWeight: tab === key ? 600 : 500,
+              color: tab === key ? '#0075de' : '#615d59',
+              background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              borderBottom: tab === key ? '2px solid #0075de' : '2px solid transparent',
+              marginBottom: '-1px', transition: 'color 0.1s',
+            }}>{label}</button>
+          ))}
         </div>
 
-        <WeeklyGrid
-          weekDates={weekDates}
-          records={filteredRecords}
-          customCategories={CUSTOM_CATS}
-        />
+        {/* Week nav (shared by weekly + review) */}
+        {(tab === 'weekly' || tab === 'review') && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+            <button onClick={() => { const d = new Date(referenceDate); d.setDate(d.getDate() - 7); setReferenceDate(d); }} style={navBtn} aria-label="前の週">
+              <ChevronLeft size={16} />
+            </button>
+            <span style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(0,0,0,0.95)', letterSpacing: '-0.2px' }}>{weekLabel}</span>
+            <button onClick={() => { const d = new Date(referenceDate); d.setDate(d.getDate() + 7); setReferenceDate(d); }} style={navBtn} aria-label="次の週">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
+
+        {/* ---- 週間表タブ ---- */}
+        {tab === 'weekly' && (
+          dataLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px', color: '#a39e98', gap: '10px' }}>
+              <Loader2 size={20} className="animate-spin" />
+              <span style={{ fontSize: '14px' }}>読み込み中...</span>
+            </div>
+          ) : (
+            <WeeklyGrid weekDates={weekDates} records={weekRecords} customCategories={[]} />
+          )
+        )}
+
+        {/* ---- 成績タブ ---- */}
+        {tab === 'tests' && (
+          <div>
+            {testResults.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px', color: '#a39e98', fontSize: '14px' }}>
+                テスト結果がまだ登録されていません。
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {testResults.slice(0, 10).map(r => {
+                  const tc = TEST_TYPE_COLORS[r.testType];
+                  const numScores = r.scores.filter(s => s.score != null && s.maxScore != null);
+                  const total    = numScores.reduce((sum, s) => sum + (s.score ?? 0), 0);
+                  const totalMax = numScores.reduce((sum, s) => sum + (s.maxScore ?? 0), 0);
+                  return (
+                    <div key={r.id} style={cardStyle}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                        <span style={{ padding: '2px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600, background: tc.bg, color: tc.text }}>
+                          {r.testType}
+                        </span>
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: 'rgba(0,0,0,0.9)' }}>{r.testName}</span>
+                        <span style={{ fontSize: '12px', color: '#a39e98' }}>{r.date.replace(/-/g, '/')}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                        {r.scores.map((s, i) => {
+                          const p = pct(s.score, s.maxScore);
+                          return (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <span style={{ fontSize: '12px', color: '#615d59', fontWeight: 500 }}>{s.subject}</span>
+                              {s.grade && <span style={{ fontSize: '13px', fontWeight: 700, color: 'rgba(0,0,0,0.85)' }}>{s.grade}</span>}
+                              {s.passed != null && (
+                                <span style={{ fontSize: '11px', fontWeight: 600, padding: '1px 7px', borderRadius: '4px', background: s.passed ? '#D1FAE5' : '#FEE2E2', color: s.passed ? '#065F46' : '#991B1B' }}>
+                                  {s.passed ? '合格' : '不合格'}
+                                </span>
+                              )}
+                              {s.score != null && s.maxScore != null && (
+                                <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>
+                                  {s.score}<span style={{ color: '#a39e98', fontWeight: 400 }}>/{s.maxScore}</span>
+                                </span>
+                              )}
+                              {p != null && <span style={{ fontSize: '11px', color: '#a39e98' }}>({p}%)</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {numScores.length > 1 && (
+                        <div style={{ marginTop: '8px', fontSize: '12px', color: '#615d59' }}>
+                          合計 <strong style={{ color: 'rgba(0,0,0,0.9)' }}>{total}</strong>
+                          <span style={{ color: '#a39e98' }}>/{totalMax}</span>
+                          <span style={{ color: '#a39e98', marginLeft: '4px' }}>({Math.round(total / totalMax * 100)}%)</span>
+                        </div>
+                      )}
+                      {r.notes && <div style={{ marginTop: '6px', fontSize: '12px', color: '#615d59' }}>{r.notes}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ---- 振返りタブ ---- */}
+        {tab === 'review' && (
+          <div>
+            {!review || (!review.reviewText && !review.improvement && !review.testStrategy) ? (
+              <div style={{ textAlign: 'center', padding: '60px', color: '#a39e98', fontSize: '14px' }}>
+                この週の振返りはまだ入力されていません。
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Study summary */}
+                {(() => {
+                  const snap = review.studySnapshot ?? {};
+                  const total = Object.values(snap).reduce((s, v) => s + v, 0);
+                  if (total === 0) return null;
+                  return (
+                    <div style={cardStyle}>
+                      <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(0,0,0,0.9)', margin: '0 0 12px' }}>学習サマリー</h2>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                        <div style={{ padding: '8px 16px', borderRadius: '8px', background: '#F0F7FF', border: '1px solid #BFDBFE' }}>
+                          <div style={{ fontSize: '11px', color: '#3B82F6', fontWeight: 500, marginBottom: '2px' }}>合計</div>
+                          <div style={{ fontSize: '18px', fontWeight: 700, color: '#1D4ED8' }}>{fmtTime(total)}</div>
+                        </div>
+                        {Object.entries(snap).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([cat, min]) => (
+                          <div key={cat} style={{ padding: '8px 14px', borderRadius: '8px', background: '#F9FAFB', border: '1px solid rgba(0,0,0,0.08)' }}>
+                            <div style={{ fontSize: '11px', color: '#6B7280', fontWeight: 500, marginBottom: '2px' }}>{cat}</div>
+                            <div style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>{fmtTime(min)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Text sections */}
+                {[
+                  { label: '📊 今週の振返り', value: review.reviewText },
+                  { label: '💡 来週への改善案', value: review.improvement },
+                  { label: '📝 テスト対策',    value: review.testStrategy },
+                ].filter(s => s.value?.trim()).map(sec => (
+                  <div key={sec.label} style={cardStyle}>
+                    <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(0,0,0,0.9)', margin: '0 0 12px' }}>{sec.label}</h2>
+                    <p style={{ fontSize: '14px', color: 'rgba(0,0,0,0.85)', lineHeight: 1.8, margin: 0, whiteSpace: 'pre-wrap' }}>
+                      {sec.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
       </main>
     </div>
   );

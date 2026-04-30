@@ -81,6 +81,30 @@ export async function deleteCustomCategory(id: string): Promise<void> {
   if (error) throw new Error(`科目削除エラー: ${error.message}`);
 }
 
+export async function getLinkedStudentId(parentId: string): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('users')
+    .select('linked_student_id')
+    .eq('id', parentId)
+    .single();
+  if (error || !data) return null;
+  return data.linked_student_id ?? null;
+}
+
+export async function getStudentProfile(studentId: string): Promise<{ name: string } | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('users')
+    .select('name')
+    .eq('id', studentId)
+    .single();
+  if (error || !data) return null;
+  return { name: data.name };
+}
+
 export async function getUserRole(userId: string): Promise<'student' | 'parent' | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = createClient();
