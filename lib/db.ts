@@ -1,5 +1,5 @@
 import { createClient } from './supabase';
-import { StudyRecord, CustomCategory, TimeSlot } from './types';
+import { StudyRecord, CustomCategory, TimeSlot, TestType, TestScore, TestResult, WeeklyReview } from './types';
 import { computeDailyTotals } from './mockData';
 
 function isSupabaseConfigured(): boolean {
@@ -91,4 +91,98 @@ export async function getUserRole(userId: string): Promise<'student' | 'parent' 
     .single();
   if (error) return null;
   return data?.role as 'student' | 'parent' | null;
+}
+
+// ---- Test Results ----
+
+export async function getTestResults(userId: string): Promise<TestResult[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('test_results')
+    .select('*')
+    .eq('user_id', userId)
+    .order('date', { ascending: false });
+  if (error) throw new Error(`テスト取得エラー: ${error.message}`);
+  return (data ?? []).map(row => ({
+    id: row.id,
+    userId: row.user_id,
+    date: row.date,
+    testType: row.test_type as TestType,
+    testName: row.test_name,
+    scores: row.scores as TestScore[],
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function saveTestResult(
+  userId: string,
+  data: { date: string; testType: string; testName: string; scores: TestScore[]; notes?: string }
+): Promise<void> {
+  if (!isSupabaseConfigured()) throw new Error('Supabaseが設定されていません。');
+  const supabase = createClient();
+  const { error } = await supabase.from('test_results').insert({
+    user_id: userId,
+    date: data.date,
+    test_type: data.testType,
+    test_name: data.testName,
+    scores: data.scores,
+    notes: data.notes ?? null,
+  });
+  if (error) throw new Error(`テスト保存エラー: ${error.message}`);
+}
+
+export async function deleteTestResult(id: string): Promise<void> {
+  if (!isSupabaseConfigured()) throw new Error('Supabaseが設定されていません。');
+  const supabase = createClient();
+  const { error } = await supabase.from('test_results').delete().eq('id', id);
+  if (error) throw new Error(`テスト削除エラー: ${error.message}`);
+}
+
+// ---- Weekly Reviews ----
+
+export async function getWeeklyReview(userId: string, weekStart: string): Promise<WeeklyReview | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('weekly_reviews')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('week_start', weekStart)
+    .single();
+  if (error || !data) return null;
+  return {
+    id: data.id,
+    userId: data.user_id,
+    weekStart: data.week_start,
+    studySnapshot: data.study_snapshot,
+    reviewText: data.review_text,
+    improvement: data.improvement,
+    testStrategy: data.test_strategy,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function upsertWeeklyReview(
+  userId: string,
+  weekStart: string,
+  payload: { studySnapshot: Record<string, number>; reviewText: string; improvement: string; testStrategy: string }
+): Promise<void> {
+  if (!isSupabaseConfigured()) throw new Error('Supabaseが設定されていません。');
+  const supabase = createClient();
+  const { error } = await supabase.from('weekly_reviews').upsert(
+    {
+      user_id: userId,
+      week_start: weekStart,
+      study_snapshot: payload.studySnapshot,
+      review_text: payload.reviewText,
+      improvement: payload.improvement,
+      test_strategy: payload.testStrategy,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,week_start' }
+  );
+  if (error) throw new Error(`振返り保存エラー: ${error.message}`);
 }

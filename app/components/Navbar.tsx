@@ -2,20 +2,24 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BookOpen, Mic, Users, LogOut } from 'lucide-react';
+import { BookOpen, Mic, Users, LogOut, BarChart2, NotebookPen } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { getUserRole } from '@/lib/db';
 import { useState, useEffect } from 'react';
 
 const studentNavItems = [
-  { href: '/weekly', label: '週間表', icon: BookOpen },
+  { href: '/weekly', label: '週間表',   icon: BookOpen },
   { href: '/record', label: '記録する', icon: Mic },
+  { href: '/tests',  label: '成績',     icon: BarChart2 },
+  { href: '/review', label: '振返り',   icon: NotebookPen },
 ];
 
 const parentNavItems = [
-  { href: '/weekly', label: '週間表', icon: BookOpen },
+  { href: '/weekly', label: '週間表',   icon: BookOpen },
   { href: '/record', label: '記録する', icon: Mic },
-  { href: '/parent', label: '保護者', icon: Users },
+  { href: '/tests',  label: '成績',     icon: BarChart2 },
+  { href: '/review', label: '振返り',   icon: NotebookPen },
+  { href: '/parent', label: '保護者',   icon: Users },
 ];
 
 export default function Navbar() {
@@ -58,7 +62,6 @@ export default function Navbar() {
         </Link>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {/* Nav links */}
           {navItems.map(({ href, label, icon: Icon }) => {
             const active = pathname === href;
             return (
@@ -76,7 +79,6 @@ export default function Navbar() {
             );
           })}
 
-          {/* Sign out */}
           {user && (
             <button
               onClick={handleSignOut}
