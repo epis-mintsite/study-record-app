@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Download, Plus, X, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Plus, X, Loader2, Pencil, Trash2 } from 'lucide-react';
 import Navbar from '@/app/components/Navbar';
 import WeeklyGrid from '@/app/components/WeeklyGrid';
 import { MOCK_RECORDS, getWeekDates, formatDate, computeDailyTotals } from '@/lib/mockData';
 import { StudyRecord, TimeSlot, CustomCategory, CUSTOM_CATEGORY_PRESETS } from '@/lib/types';
 import { useAuth } from '@/lib/useAuth';
-import { getStudyRecords, getCustomCategories, saveCustomCategory } from '@/lib/db';
+import { getStudyRecords, getCustomCategories, saveCustomCategory, updateCustomCategory, deleteCustomCategory } from '@/lib/db';
 
 const DEMO_CUSTOM_CATS: CustomCategory[] = [
   { id: '1', userId: 'demo', name: 'ピアノ', color: '#FEF9C3' },
@@ -25,6 +25,10 @@ export default function WeeklyPage() {
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState(CUSTOM_CATEGORY_PRESETS[0]);
   const [savingCat, setSavingCat] = useState(false);
+  const [editTarget, setEditTarget] = useState<CustomCategory | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editColor, setEditColor] = useState(CUSTOM_CATEGORY_PRESETS[0]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
   const weekDates = getWeekDates(referenceDate);
@@ -155,6 +159,50 @@ export default function WeeklyPage() {
     }
   }
 
+  function openEditModal(cat: CustomCategory) {
+    setEditTarget(cat);
+    setEditName(cat.name);
+    setEditColor(cat.color);
+  }
+
+  async function handleEditCategory() {
+    if (!editTarget || !editName.trim()) return;
+    setSavingCat(true);
+    try {
+      if (isDemo) {
+        setCustomCategories(prev => prev.map(c =>
+          c.id === editTarget.id ? { ...c, name: editName.trim(), color: editColor } : c
+        ));
+      } else {
+        await updateCustomCategory(editTarget.id, editName.trim(), editColor);
+        const cats = await getCustomCategories(user.id);
+        setCustomCategories(cats);
+      }
+      setEditTarget(null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '科目の更新に失敗しました。');
+    } finally {
+      setSavingCat(false);
+    }
+  }
+
+  async function handleDeleteCategory(cat: CustomCategory) {
+    if (!window.confirm(`「${cat.name}」を削除しますか？`)) return;
+    setDeletingId(cat.id);
+    try {
+      if (isDemo) {
+        setCustomCategories(prev => prev.filter(c => c.id !== cat.id));
+      } else {
+        await deleteCustomCategory(cat.id);
+        setCustomCategories(prev => prev.filter(c => c.id !== cat.id));
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '科目の削除に失敗しました。');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const weekLabel = (() => {
     const s = weekDates[0], e = weekDates[6];
     return `${s.getFullYear()}年${s.getMonth() + 1}月${s.getDate()}日 〜 ${e.getMonth() + 1}月${e.getDate()}日`;
@@ -219,12 +267,31 @@ export default function WeeklyPage() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
             {customCategories.map(c => (
               <span key={c.id} style={{
-                display: 'inline-flex', alignItems: 'center', gap: '5px',
-                padding: '3px 10px', borderRadius: '9999px',
+                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                padding: '3px 6px 3px 10px', borderRadius: '9999px',
                 background: c.color, border: '1px solid rgba(0,0,0,0.08)',
                 fontSize: '12px', fontWeight: 500, color: 'rgba(0,0,0,0.75)',
               }}>
                 {c.name}
+                <button onClick={() => openEditModal(c)} title="編集" style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: '2px',
+                  display: 'flex', alignItems: 'center', color: 'rgba(0,0,0,0.4)',
+                  borderRadius: '3px',
+                }}>
+                  <Pencil size={11} />
+                </button>
+                <button
+                  onClick={() => handleDeleteCategory(c)}
+                  disabled={deletingId === c.id}
+                  title="削除"
+                  style={{
+                    background: 'none', border: 'none', cursor: deletingId === c.id ? 'default' : 'pointer',
+                    padding: '2px', display: 'flex', alignItems: 'center', color: 'rgba(0,0,0,0.35)',
+                    borderRadius: '3px',
+                  }}
+                >
+                  {deletingId === c.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                </button>
               </span>
             ))}
           </div>
@@ -307,6 +374,58 @@ export default function WeeklyPage() {
               </button>
               <button onClick={addCustomCategory} disabled={savingCat} style={{ flex: 1, border: 'none', borderRadius: '4px', padding: '8px 16px', fontSize: '14px', fontWeight: 600, color: '#ffffff', background: '#0075de', cursor: savingCat ? 'default' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                 {savingCat ? <><Loader2 size={14} className="animate-spin" /> 保存中</> : '追加'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit category modal */}
+      {editTarget && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+          onClick={e => e.target === e.currentTarget && setEditTarget(null)}
+        >
+          <div style={{
+            background: '#ffffff', borderRadius: '12px', padding: '28px',
+            width: '100%', maxWidth: '360px',
+            boxShadow: 'rgba(0,0,0,0.01) 0px 1px 3px, rgba(0,0,0,0.02) 0px 3px 7px, rgba(0,0,0,0.04) 0px 14px 28px, rgba(0,0,0,0.05) 0px 23px 52px',
+            border: '1px solid rgba(0,0,0,0.1)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(0,0,0,0.95)', margin: 0 }}>科目を編集</h3>
+              <button onClick={() => setEditTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a39e98', padding: '2px' }}>
+                <X size={16} />
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={labelStyle}>科目名</label>
+                <input
+                  type="text" value={editName} onChange={e => setEditName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleEditCategory()}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>色</label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {CUSTOM_CATEGORY_PRESETS.map(color => (
+                    <button key={color} onClick={() => setEditColor(color)} aria-label={`色 ${color}`} style={{
+                      width: '28px', height: '28px', borderRadius: '50%', background: color, cursor: 'pointer',
+                      border: editColor === color ? '2px solid #0075de' : '2px solid rgba(0,0,0,0.1)',
+                      transform: editColor === color ? 'scale(1.15)' : 'scale(1)',
+                      transition: 'transform 0.1s',
+                    }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
+              <button onClick={() => setEditTarget(null)} style={{ flex: 1, border: '1px solid rgba(0,0,0,0.1)', borderRadius: '4px', padding: '8px 16px', fontSize: '14px', fontWeight: 500, color: '#615d59', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
+                キャンセル
+              </button>
+              <button onClick={handleEditCategory} disabled={savingCat} style={{ flex: 1, border: 'none', borderRadius: '4px', padding: '8px 16px', fontSize: '14px', fontWeight: 600, color: '#ffffff', background: '#0075de', cursor: savingCat ? 'default' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                {savingCat ? <><Loader2 size={14} className="animate-spin" /> 保存中</> : '保存'}
               </button>
             </div>
           </div>

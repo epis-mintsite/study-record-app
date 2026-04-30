@@ -64,6 +64,16 @@ export async function saveCustomCategory(userId: string, name: string, color: st
   if (error) throw new Error(`科目保存エラー: ${error.message}`);
 }
 
+export async function updateCustomCategory(id: string, name: string, color: string): Promise<void> {
+  if (!isSupabaseConfigured()) throw new Error('Supabaseが設定されていません。');
+  const supabase = createClient();
+  const { error } = await supabase
+    .from('categories')
+    .update({ name, color })
+    .eq('id', id);
+  if (error) throw new Error(`科目更新エラー: ${error.message}`);
+}
+
 export async function deleteCustomCategory(id: string): Promise<void> {
   if (!isSupabaseConfigured()) throw new Error('Supabaseが設定されていません。');
   const supabase = createClient();
