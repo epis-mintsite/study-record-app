@@ -81,45 +81,52 @@ export default function WeeklyPage() {
       const { default: html2canvas } = await import('html2canvas');
       const { default: jsPDF } = await import('jspdf');
 
-      // スマホ対応: overflow を一時解除して全幅をキャプチャ
-      type SavedStyle = { el: HTMLElement; overflow: string; overflowX: string };
-      const saved: SavedStyle[] = [];
-      const releaseOverflow = (el: HTMLElement) => {
-        const cs = window.getComputedStyle(el);
-        if (cs.overflow === 'hidden' || cs.overflowX === 'hidden' || cs.overflowX === 'auto' || cs.overflowX === 'scroll') {
-          saved.push({ el, overflow: el.style.overflow, overflowX: el.style.overflowX });
-          el.style.overflow = 'visible';
-          el.style.overflowX = 'visible';
-        }
-        Array.from(el.children).forEach(c => releaseOverflow(c as HTMLElement));
-      };
-      releaseOverflow(gridRef.current);
+      // オフスクリーンにクローンを生成して全幅・全高をキャプチャ
+      const clone = gridRef.current.cloneNode(true) as HTMLElement;
+      Object.assign(clone.style, {
+        position: 'fixed',
+        top: '-99999px',
+        left: '0',
+        width: '900px',
+        overflow: 'visible',
+        zIndex: '-9999',
+      });
+      clone.querySelectorAll<HTMLElement>('*').forEach(el => {
+        el.style.overflow = 'visible';
+        el.style.overflowX = 'visible';
+        el.style.overflowY = 'visible';
+      });
+      document.body.appendChild(clone);
+      await new Promise(r => requestAnimationFrame(r));
 
-      const fullWidth = gridRef.current.scrollWidth;
-      const fullHeight = gridRef.current.scrollHeight;
-
-      const canvas = await html2canvas(gridRef.current, {
+      const canvas = await html2canvas(clone, {
         scale: 2,
         useCORS: true,
-        width: fullWidth,
-        height: fullHeight,
-        windowWidth: fullWidth,
+        width: clone.scrollWidth,
+        height: clone.scrollHeight,
+        windowWidth: 900,
       });
-
-      // スタイルを元に戻す
-      saved.forEach(({ el, overflow, overflowX }) => {
-        el.style.overflow = overflow;
-        el.style.overflowX = overflowX;
-      });
+      document.body.removeChild(clone);
 
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      // グリッドは縦長 → A4縦向きに全体を収める
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const margin = 6;
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const availW = pageW - margin * 2;
+      const availH = pageH - margin * 2;
+      const scale = Math.min(availW / canvas.width, availH / canvas.height);
+      const drawW = canvas.width * scale;
+      const drawH = canvas.height * scale;
+      const x = margin + (availW - drawW) / 2;
+      const y = margin + (availH - drawH) / 2;
+      pdf.addImage(imgData, 'PNG', x, y, drawW, drawH);
+
       const start = weekDates[0];
       pdf.save(`学習記録_${start.getFullYear()}年${start.getMonth() + 1}月${start.getDate()}日_週間.pdf`);
-    } catch {
+    } catch (e) {
+      console.error(e);
       alert('PDFの生成に失敗しました。');
     }
   }
