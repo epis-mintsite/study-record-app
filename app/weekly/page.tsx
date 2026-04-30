@@ -7,7 +7,7 @@ import WeeklyGrid from '@/app/components/WeeklyGrid';
 import { MOCK_RECORDS, getWeekDates, formatDate, computeDailyTotals } from '@/lib/mockData';
 import { StudyRecord, TimeSlot, CustomCategory, CUSTOM_CATEGORY_PRESETS } from '@/lib/types';
 import { useAuth } from '@/lib/useAuth';
-import { getStudyRecords, getCustomCategories, saveCustomCategory, updateCustomCategory, deleteCustomCategory } from '@/lib/db';
+import { getStudyRecords, upsertStudyRecord, getCustomCategories, saveCustomCategory, updateCustomCategory, deleteCustomCategory } from '@/lib/db';
 
 const DEMO_CUSTOM_CATS: CustomCategory[] = [
   { id: '1', userId: 'demo', name: 'ピアノ', color: '#FEF9C3' },
@@ -77,6 +77,34 @@ export default function WeeklyPage() {
       const newSlots = r.timeSlots.map(s => s === original ? updated : s);
       return { ...r, timeSlots: newSlots, dailyTotals: computeDailyTotals(newSlots) };
     }));
+  }
+
+  async function handleAddSlot(date: string, slot: TimeSlot) {
+    const currentRecord = records.find(r => r.date === date);
+    const updatedSlots = currentRecord ? [...currentRecord.timeSlots, slot] : [slot];
+    const newDailyTotals = computeDailyTotals(updatedSlots);
+
+    // ローカル state を即時更新
+    setRecords(prev => {
+      const exists = prev.some(r => r.date === date);
+      if (exists) {
+        return prev.map(r => r.date === date
+          ? { ...r, timeSlots: updatedSlots, dailyTotals: newDailyTotals }
+          : r
+        );
+      }
+      return [...prev, { id: Date.now().toString(), userId: user?.id ?? 'demo', date, timeSlots: updatedSlots, dailyTotals: newDailyTotals }];
+    });
+
+    // Supabase に保存
+    if (!isDemo && user) {
+      try {
+        await upsertStudyRecord(user.id, date, updatedSlots);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : '保存に失敗しました。');
+        loadWeekData(weekDates);
+      }
+    }
   }
 
   async function handleDownloadPDF() {
@@ -321,6 +349,7 @@ export default function WeeklyPage() {
               records={records}
               customCategories={customCategories}
               onUpdateSlot={handleUpdateSlot}
+              onAddSlot={handleAddSlot}
             />
           </div>
         )}

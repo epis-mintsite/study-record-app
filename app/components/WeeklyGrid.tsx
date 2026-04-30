@@ -41,6 +41,91 @@ function buildMergedCells(record: StudyRecord | undefined): MergedCell[] {
   return cells.sort((a, b) => a.slotIndex - b.slotIndex);
 }
 
+type AddModalProps = {
+  startTime: string;
+  endTime: string;
+  onSave: (slot: TimeSlot) => void;
+  onClose: () => void;
+  customCategories: CustomCategory[];
+};
+
+function AddModal({ startTime: initialStart, endTime: initialEnd, onSave, onClose, customCategories }: AddModalProps) {
+  const [startTime, setStartTime] = useState(initialStart);
+  const [endTime, setEndTime] = useState(initialEnd);
+  const [category, setCategory] = useState<string>(STANDARD_CATEGORIES[0]);
+  const [note, setNote] = useState('');
+  const allCategories = [...STANDARD_CATEGORIES, ...customCategories.map((c) => c.name)];
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(0,0,0,0.35)',
+        zIndex: 50,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '16px',
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div style={{
+        background: '#ffffff', borderRadius: '12px', padding: '28px',
+        width: '100%', maxWidth: '380px',
+        boxShadow: 'rgba(0,0,0,0.01) 0px 1px 3px, rgba(0,0,0,0.02) 0px 3px 7px, rgba(0,0,0,0.02) 0px 7px 15px, rgba(0,0,0,0.04) 0px 14px 28px, rgba(0,0,0,0.05) 0px 23px 52px',
+        border: '1px solid rgba(0,0,0,0.1)',
+      }}>
+        <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(0,0,0,0.95)', margin: '0 0 20px' }}>
+          学習を記録
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            {([['開始時刻', startTime, setStartTime], ['終了時刻', endTime, setEndTime]] as [string, string, (v: string) => void][]).map(([label, val, setter]) => (
+              <div key={label}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#615d59', marginBottom: '5px' }}>{label}</label>
+                <input
+                  type="time" value={val}
+                  onChange={(e) => setter(e.target.value)}
+                  style={{ width: '100%', border: '1px solid #dddddd', borderRadius: '4px', padding: '7px 10px', fontSize: '14px', color: 'rgba(0,0,0,0.9)', outline: 'none', fontFamily: 'inherit' }}
+                />
+              </div>
+            ))}
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#615d59', marginBottom: '5px' }}>科目</label>
+            <select
+              value={category} onChange={(e) => setCategory(e.target.value)}
+              style={{ width: '100%', border: '1px solid #dddddd', borderRadius: '4px', padding: '7px 10px', fontSize: '14px', color: 'rgba(0,0,0,0.9)', outline: 'none', fontFamily: 'inherit', background: '#fff' }}
+            >
+              {allCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#615d59', marginBottom: '5px' }}>メモ（任意）</label>
+            <input
+              type="text" value={note} onChange={(e) => setNote(e.target.value)}
+              placeholder="例：漢字ドリル"
+              style={{ width: '100%', border: '1px solid #dddddd', borderRadius: '4px', padding: '7px 10px', fontSize: '14px', color: 'rgba(0,0,0,0.9)', outline: 'none', fontFamily: 'inherit' }}
+            />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
+          <button
+            onClick={onClose}
+            style={{ flex: 1, border: '1px solid rgba(0,0,0,0.1)', borderRadius: '4px', padding: '8px 16px', fontSize: '14px', fontWeight: 500, color: '#615d59', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            キャンセル
+          </button>
+          <button
+            onClick={() => onSave({ startTime, endTime, category, note: note || undefined, isCustomCategory: !STANDARD_CATEGORIES.includes(category as typeof STANDARD_CATEGORIES[number]) })}
+            style={{ flex: 1, border: 'none', borderRadius: '4px', padding: '8px 16px', fontSize: '14px', fontWeight: 600, color: '#ffffff', background: '#0075de', cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            記録する
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type EditModalProps = {
   slot: TimeSlot;
   onSave: (updated: TimeSlot) => void;
@@ -167,10 +252,12 @@ type Props = {
   records: StudyRecord[];
   customCategories: CustomCategory[];
   onUpdateSlot?: (date: string, updated: TimeSlot, original: TimeSlot) => void;
+  onAddSlot?: (date: string, slot: TimeSlot) => void;
 };
 
-export default function WeeklyGrid({ weekDates, records, customCategories, onUpdateSlot }: Props) {
+export default function WeeklyGrid({ weekDates, records, customCategories, onUpdateSlot, onAddSlot }: Props) {
   const [editTarget, setEditTarget] = useState<{ date: string; slot: TimeSlot } | null>(null);
+  const [addTarget, setAddTarget] = useState<{ date: string; startTime: string; endTime: string } | null>(null);
   const [showMinutes, setShowMinutes] = useState(false);
 
   const recordByDate = useMemo(() => {
@@ -221,6 +308,18 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
 
   return (
     <div>
+      {addTarget && (
+        <AddModal
+          startTime={addTarget.startTime}
+          endTime={addTarget.endTime}
+          customCategories={customCategories}
+          onClose={() => setAddTarget(null)}
+          onSave={(slot) => {
+            onAddSlot?.(addTarget.date, slot);
+            setAddTarget(null);
+          }}
+        />
+      )}
       {editTarget && (
         <EditModal
           slot={editTarget.slot}
@@ -315,6 +414,8 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
           {Array.from({ length: TOTAL_SLOTS }, (_, rowIdx) => {
             const timeLabel = slotIndexToTime(rowIdx);
             const isHour = rowIdx % 2 === 0;
+            const slotStart = slotIndexToTime(rowIdx);
+            const slotEnd = slotIndexToTime(Math.min(rowIdx + 2, TOTAL_SLOTS));
 
             return (
               <div
@@ -381,7 +482,14 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
                   return (
                     <div
                       key={colIdx}
-                      style={{ borderRight: colIdx < 6 ? borderWhisper : 'none', background: 'transparent' }}
+                      onClick={() => onAddSlot && setAddTarget({ date: dateKey, startTime: slotStart, endTime: slotEnd })}
+                      style={{
+                        borderRight: colIdx < 6 ? borderWhisper : 'none',
+                        background: 'transparent',
+                        cursor: onAddSlot ? 'pointer' : 'default',
+                      }}
+                      onMouseEnter={e => { if (onAddSlot) e.currentTarget.style.background = 'rgba(0,117,222,0.05)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                     />
                   );
                 })}
