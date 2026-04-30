@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS test_results (
   created_at  timestamptz DEFAULT now()
 );
 ALTER TABLE test_results ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "own_test_results"    ON test_results FOR ALL    USING (auth.uid() = user_id);
-CREATE POLICY "parent_read_tests"   ON test_results FOR SELECT USING (is_parent_of(auth.uid(), user_id));
+CREATE POLICY "own_test_results"  ON test_results FOR ALL    USING (auth.uid() = user_id);
+CREATE POLICY "parent_read_tests" ON test_results FOR SELECT USING (public.is_parent_of(user_id));
 
 -- weekly_reviews
 CREATE TABLE IF NOT EXISTS weekly_reviews (
@@ -27,5 +27,5 @@ CREATE TABLE IF NOT EXISTS weekly_reviews (
   UNIQUE(user_id, week_start)
 );
 ALTER TABLE weekly_reviews ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "own_weekly_reviews"   ON weekly_reviews FOR ALL    USING (auth.uid() = user_id);
-CREATE POLICY "parent_read_reviews"  ON weekly_reviews FOR SELECT USING (is_parent_of(auth.uid(), user_id));
+CREATE POLICY "own_weekly_reviews"  ON weekly_reviews FOR ALL    USING (auth.uid() = user_id);
+CREATE POLICY "parent_read_reviews" ON weekly_reviews FOR SELECT USING (public.is_parent_of(user_id));
