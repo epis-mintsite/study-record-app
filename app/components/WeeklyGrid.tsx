@@ -450,10 +450,6 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
                   const starting = cells.find(c => c.slotIndex === rowIdx);
                   if (starting) {
                     const { bgColor } = getCategoryStyle(starting.slot.category, customCategories);
-                    // 複数行にまたがるセルは中間罫線をグラデーションで再現する
-                    const intermediateBorders = starting.span > 1
-                      ? `repeating-linear-gradient(to bottom, transparent 0px, transparent 31px, rgba(0,0,0,0.18) 31px, rgba(0,0,0,0.18) 32px)`
-                      : undefined;
                     return (
                       <div
                         key={colIdx}
@@ -462,16 +458,31 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
                           gridRow: `span ${starting.span}`,
                           height: `${32 * starting.span}px`,
                           backgroundColor: bgColor,
-                          backgroundImage: intermediateBorders,
                           borderRight: colIdx < 6 ? borderWhisper : 'none',
                           padding: '4px 6px',
                           cursor: 'pointer',
                           overflow: 'hidden',
+                          position: 'relative',
                           transition: 'filter 0.1s',
                         }}
                         onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(0.96)')}
                         onMouseLeave={e => (e.currentTarget.style.filter = 'none')}
                       >
+                        {/* 中間罫線：スパンする各行の境界に1px線を描画 */}
+                        {Array.from({ length: starting.span - 1 }, (_, i) => {
+                          const y = 32 * (i + 1);
+                          const isHourBorder = (rowIdx + i + 1) % 2 === 1;
+                          return (
+                            <div key={i} style={{
+                              position: 'absolute',
+                              top: `${y}px`,
+                              left: 0, right: 0,
+                              height: '1px',
+                              background: isHourBorder ? 'rgba(0,0,0,0.30)' : 'rgba(0,0,0,0.15)',
+                              pointerEvents: 'none',
+                            }} />
+                          );
+                        })}
                         <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(0,0,0,0.85)', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {starting.slot.category}
                         </div>
