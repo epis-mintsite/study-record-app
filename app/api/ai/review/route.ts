@@ -86,7 +86,8 @@ export async function POST(req: NextRequest) {
     const text = result.response.text().trim();
     return NextResponse.json({ text });
   } catch (e) {
-    console.error('Gemini error:', e);
-    return NextResponse.json({ error: 'AI生成に失敗しました。しばらくしてから再試行してください。' }, { status: 500 });
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('Gemini error:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
