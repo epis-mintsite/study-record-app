@@ -8,6 +8,7 @@ import WeeklyGrid from '@/app/components/WeeklyGrid';
 import { getWeekDates, formatDate } from '@/lib/mockData';
 import { StudyRecord, TestResult, WeeklyReview, TEST_TYPE_COLORS } from '@/lib/types';
 import { useAuth } from '@/lib/useAuth';
+import { createClient } from '@/lib/supabase';
 import {
   getUserRole, getLinkedStudentId, getStudentProfile,
   getStudyRecords, getTestResults, getWeeklyReview,
@@ -34,6 +35,7 @@ function fmtTime(min: number) {
 export default function ParentPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const supabase = createClient();
 
   const [roleChecked,  setRoleChecked]  = useState(false);
   const [studentId,    setStudentId]    = useState<string | null>(null);
@@ -160,10 +162,35 @@ export default function ParentPage() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#ffffff' }}>
       <Navbar />
       <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
-        <div style={{ textAlign: 'center', color: '#615d59' }}>
+        <div style={{ textAlign: 'center', maxWidth: '400px' }}>
           <div style={{ fontSize: '32px', marginBottom: '12px' }}>👨‍👧</div>
-          <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>生徒が紐付けされていません</div>
-          <div style={{ fontSize: '13px', color: '#a39e98' }}>管理者にお問い合わせください。</div>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(0,0,0,0.9)', marginBottom: '10px' }}>
+            お子さまのアカウントが紐付けされていません
+          </div>
+          <div style={{ fontSize: '13px', color: '#615d59', lineHeight: 1.75, marginBottom: '20px' }}>
+            保護者アカウントの登録時に、お子さまのメールアドレスが正しく入力されていない可能性があります。
+          </div>
+          <div style={{
+            background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: '8px',
+            padding: '16px', textAlign: 'left', fontSize: '13px', color: '#92400E', lineHeight: 1.75,
+          }}>
+            <div style={{ fontWeight: 700, marginBottom: '6px' }}>解決方法</div>
+            <ol style={{ margin: 0, paddingLeft: '18px' }}>
+              <li>お子さまが先に生徒アカウントを作成していることを確認する</li>
+              <li>一度ログアウトする</li>
+              <li>新規登録で「保護者」を選び、お子さまのメールアドレスを正しく入力して再登録する</li>
+            </ol>
+          </div>
+          <button
+            onClick={() => { supabase.auth.signOut(); router.replace('/login'); }}
+            style={{
+              marginTop: '20px', padding: '9px 24px', borderRadius: '6px', border: 'none',
+              background: '#7C3AED', color: '#ffffff', fontSize: '14px', fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            ログアウトして再登録する
+          </button>
         </div>
       </main>
     </div>

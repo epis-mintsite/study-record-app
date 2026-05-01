@@ -30,17 +30,27 @@ export default function LoginPage() {
         if (error) throw error;
         router.push('/weekly');
       } else {
+        // 保護者の場合：お子さまのメールアドレスが必須
+        if (role === 'parent' && !linkedEmail) {
+          throw new Error('保護者登録には「お子さまのメールアドレス」の入力が必要です。');
+        }
+
+        // 保護者の場合：生徒アカウントが存在するか事前確認
+        let linkedStudentId: string | null = null;
+        if (role === 'parent' && linkedEmail) {
+          const { data: linked } = await supabase.from('users').select('id').eq('email', linkedEmail).eq('role', 'student').single();
+          if (!linked) {
+            throw new Error('入力されたメールアドレスの生徒アカウントが見つかりません。お子さまが先にアカウントを作成しているか確認してください。');
+          }
+          linkedStudentId = linked.id;
+        }
+
         const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         if (data.user) {
-          let linkedStudentId: string | null = null;
-          if (role === 'parent' && linkedEmail) {
-            const { data: linked } = await supabase.from('users').select('id').eq('email', linkedEmail).single();
-            if (linked) linkedStudentId = linked.id;
-          }
           await supabase.from('users').insert({ id: data.user.id, name, role, linked_student_id: linkedStudentId });
         }
-        setMessage('確認メールを送りました。メールをご確認ください。');
+        setMessage('アカウントを作成しました。ログインタブからログインしてください。');
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '予期しないエラーが発生しました');
