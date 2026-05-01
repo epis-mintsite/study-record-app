@@ -81,13 +81,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
     return NextResponse.json({ text });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.error('Gemini error:', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error('Gemini error:', e);
+    return NextResponse.json({ error: 'AI生成に失敗しました。しばらくしてから再試行してください。' }, { status: 500 });
   }
 }
