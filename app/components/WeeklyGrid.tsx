@@ -450,6 +450,10 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
                   const starting = cells.find(c => c.slotIndex === rowIdx);
                   if (starting) {
                     const { bgColor } = getCategoryStyle(starting.slot.category, customCategories);
+                    // 複数行にまたがるセルは中間罫線をグラデーションで再現する
+                    const intermediateBorders = starting.span > 1
+                      ? `repeating-linear-gradient(to bottom, transparent 0px, transparent 31px, rgba(0,0,0,0.18) 31px, rgba(0,0,0,0.18) 32px)`
+                      : undefined;
                     return (
                       <div
                         key={colIdx}
@@ -458,6 +462,7 @@ export default function WeeklyGrid({ weekDates, records, customCategories, onUpd
                           gridRow: `span ${starting.span}`,
                           height: `${32 * starting.span}px`,
                           backgroundColor: bgColor,
+                          backgroundImage: intermediateBorders,
                           borderRight: colIdx < 6 ? borderWhisper : 'none',
                           padding: '4px 6px',
                           cursor: 'pointer',
