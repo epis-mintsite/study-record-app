@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirebaseAuth } from '@/lib/firebase';
 import { createClient } from '@/lib/supabase';
@@ -181,13 +182,17 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p style={{
-          textAlign: 'center', marginTop: '20px', fontSize: '12px',
-          color: '#a39e98', paddingTop: '20px',
-          borderTop: '1px solid rgba(0,0,0,0.06)',
+        <div style={{
+          textAlign: 'center', marginTop: '20px',
+          paddingTop: '20px', borderTop: '1px solid rgba(0,0,0,0.06)',
         }}>
-          エピスミントサイトと同じID・パスワードでログインできます
-        </p>
+          <p style={{ fontSize: '12px', color: '#a39e98', margin: '0 0 10px' }}>
+            エピスミントサイトと同じID・パスワードでログインできます
+          </p>
+          <Link href="/guide" style={{ fontSize: '13px', color: '#0075de', textDecoration: 'none', fontWeight: 500 }}>
+            📖 操作手順書を確認する →
+          </Link>
+        </div>
       </div>
     </div>
   );
