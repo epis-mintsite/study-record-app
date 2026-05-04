@@ -1,59 +1,80 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { getFirebaseAuth } from '@/lib/firebase';
+import { createClient } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
 
-type Mode = 'login' | 'signup';
-
 export default function LoginPage() {
-  const [mode, setMode] = useState<Mode>('login');
-  const [email, setEmail] = useState('');
+  const [userId, setUserId]     = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [role, setRole] = useState<'student' | 'parent'>('student');
-  const [linkedEmail, setLinkedEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
   const router = useRouter();
   const supabase = createClient();
 
+  function validate(): string | null {
+    if (/\s/.test(userId))              return 'スペースは使用できません。';
+    if (!/^[a-zA-Z0-9]+$/.test(userId)) return 'アルファベットと数字のみ使用できます。';
+    if (/\s/.test(password))            return 'パスワードにスペースは使用できません。';
+    if (password.length < 6)            return 'パスワードは6文字以上で入力してください。';
+    return null;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true); setError(''); setMessage('');
+    const validationError = validate();
+    if (validationError) { setError(validationError); return; }
+
+    setLoading(true);
+    setError('');
+
     try {
-      if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        router.push('/weekly');
+      // Step 1: Firebase 認証（エピスミントサイトと同じ形式）
+      const firebaseEmail = `${userId}@example.com`;
+      const credential = await signInWithEmailAndPassword(
+        getFirebaseAuth(), firebaseEmail, password,
+      );
+      const idToken = await credential.user.getIdToken();
+
+      // Step 2: サーバーAPIでSupabaseセッションを発行
+      const res = await fetch('/api/auth/epis-login', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ idToken }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'ログインに失敗しました。');
+      }
+
+      // Step 3: マジックリンクトークンをセッションに交換
+      const { error: otpError } = await supabase.auth.verifyOtp({
+        token_hash: data.hashed_token,
+        type:       'email',
+      });
+      if (otpError) throw new Error('セッションの確立に失敗しました。');
+
+      // リダイレクト先を決定
+      if (data.role === 'admin') {
+        router.push('/admin');
+      } else if (data.is_new_user) {
+        router.push('/setup');
+      } else if (data.role === 'parent') {
+        router.push('/parent');
       } else {
-        // 保護者の場合：お子さまのメールアドレスが必須
-        if (role === 'parent' && !linkedEmail) {
-          throw new Error('保護者登録には「お子さまのメールアドレス」の入力が必要です。');
-        }
-
-        // 保護者の場合：生徒アカウントが存在するか事前確認
-        let linkedStudentId: string | null = null;
-        if (role === 'parent' && linkedEmail) {
-          const { data: linked } = await supabase.from('users').select('id').eq('email', linkedEmail).eq('role', 'student').single();
-          if (!linked) {
-            throw new Error('入力されたメールアドレスの生徒アカウントが見つかりません。お子さまが先にアカウントを作成しているか確認してください。');
-          }
-          linkedStudentId = linked.id;
-        }
-
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        if (data.user) {
-          await supabase.from('users').insert({ id: data.user.id, name, role, linked_student_id: linkedStudentId });
-        }
-        setMessage('アカウントを作成しました。ログインタブからログインしてください。');
+        router.push('/weekly');
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '予期しないエラーが発生しました');
+      if (err instanceof Error && err.message.includes('auth/wrong-password')) {
+        setError('パスワードが変更されています。正しいパスワードを入力してください。');
+      } else {
+        setError(err instanceof Error ? err.message : 'ログインに失敗しました。');
+      }
     } finally {
       setLoading(false);
     }
@@ -67,7 +88,8 @@ export default function LoginPage() {
   };
 
   const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: '12px', fontWeight: 500, color: '#615d59', marginBottom: '6px',
+    display: 'block', fontSize: '12px', fontWeight: 500,
+    color: '#615d59', marginBottom: '6px',
   };
 
   return (
@@ -87,8 +109,8 @@ export default function LoginPage() {
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
             <rect x="3" y="3" width="18" height="18" rx="3" fill="#0075de" />
             <rect x="7" y="8" width="10" height="1.5" rx="0.75" fill="white" />
-            <rect x="7" y="11" width="7" height="1.5" rx="0.75" fill="white" />
-            <rect x="7" y="14" width="8" height="1.5" rx="0.75" fill="white" />
+            <rect x="7" y="11" width="7"  height="1.5" rx="0.75" fill="white" />
+            <rect x="7" y="14" width="8"  height="1.5" rx="0.75" fill="white" />
           </svg>
           <div>
             <div style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(0,0,0,0.95)', letterSpacing: '-0.2px', lineHeight: 1 }}>
@@ -100,31 +122,10 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Mode tabs */}
-        <div style={{
-          display: 'flex', background: '#f6f5f4', borderRadius: '6px', padding: '3px',
-          marginBottom: '24px', border: '1px solid rgba(0,0,0,0.06)',
-        }}>
-          {(['login', 'signup'] as Mode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              style={{
-                flex: 1, padding: '7px', borderRadius: '4px', cursor: 'pointer',
-                fontSize: '14px', fontWeight: mode === m ? 600 : 500, fontFamily: 'inherit',
-                border: 'none',
-                background: mode === m ? '#ffffff' : 'transparent',
-                color: mode === m ? 'rgba(0,0,0,0.95)' : '#615d59',
-                boxShadow: mode === m ? 'rgba(0,0,0,0.04) 0px 1px 6px' : 'none',
-                transition: 'all 0.15s',
-              }}
-            >
-              {m === 'login' ? 'ログイン' : '新規登録'}
-            </button>
-          ))}
-        </div>
+        <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(0,0,0,0.85)', marginBottom: '20px' }}>
+          ログイン
+        </h2>
 
-        {/* Messages */}
         {error && (
           <div style={{
             background: '#fff5f5', border: '1px solid rgba(220,38,38,0.15)',
@@ -134,77 +135,59 @@ export default function LoginPage() {
             {error}
           </div>
         )}
-        {message && (
-          <div style={{
-            background: '#f0fdf4', border: '1px solid rgba(22,163,74,0.2)',
-            borderRadius: '6px', padding: '10px 14px', marginBottom: '16px',
-            fontSize: '13px', color: '#15803d',
-          }}>
-            {message}
-          </div>
-        )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {mode === 'signup' && (
-            <>
-              <div>
-                <label htmlFor="name" style={labelStyle}>名前</label>
-                <input id="name" type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="山家 創" style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>役割</label>
-                <div style={{ display: 'flex', gap: '20px' }}>
-                  {[['student', '生徒'], ['parent', '保護者']].map(([val, lbl]) => (
-                    <label key={val} style={{ display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer', fontSize: '14px', color: 'rgba(0,0,0,0.85)' }}>
-                      <input type="radio" name="role" value={val} checked={role === val} onChange={() => setRole(val as any)}
-                        style={{ accentColor: '#0075de' }} />
-                      {lbl}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              {role === 'parent' && (
-                <div>
-                  <label htmlFor="linkedEmail" style={labelStyle}>お子さまのメールアドレス</label>
-                  <input id="linkedEmail" type="email" value={linkedEmail} onChange={e => setLinkedEmail(e.target.value)} placeholder="child@example.com" style={inputStyle} />
-                </div>
-              )}
-            </>
-          )}
           <div>
-            <label htmlFor="email" style={labelStyle}>メールアドレス</label>
-            <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@example.com" style={inputStyle} />
+            <label htmlFor="userId" style={labelStyle}>ユーザーID</label>
+            <input
+              id="userId"
+              type="text"
+              value={userId}
+              onChange={e => setUserId(e.target.value)}
+              required
+              placeholder="アルファベット・数字で記入"
+              autoComplete="username"
+              style={inputStyle}
+            />
           </div>
           <div>
             <label htmlFor="password" style={labelStyle}>パスワード</label>
-            <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} placeholder="6文字以上" style={inputStyle} />
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              placeholder="6文字以上"
+              autoComplete="current-password"
+              style={inputStyle}
+            />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            aria-label={mode === 'login' ? 'ログインする' : 'アカウントを作成する'}
             style={{
               width: '100%', padding: '10px 16px', borderRadius: '4px', border: 'none',
               background: loading ? '#a39e98' : '#0075de', color: '#ffffff',
               fontSize: '15px', fontWeight: 600, cursor: loading ? 'default' : 'pointer',
-              fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              marginTop: '4px',
+              fontFamily: 'inherit', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: '8px', marginTop: '4px',
             }}
           >
             {loading ? (
               <><Loader2 size={16} className="animate-spin" /> 処理中...</>
-            ) : mode === 'login' ? 'ログイン' : 'アカウント作成'}
+            ) : 'ログイン'}
           </button>
         </form>
 
-        {/* Guide link */}
-        <div style={{ textAlign: 'center', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-          <Link href="/guide" style={{ fontSize: '13px', color: '#0075de', textDecoration: 'none', fontWeight: 500 }}>
-            📖 使い方ガイドを確認する →
-          </Link>
-        </div>
+        <p style={{
+          textAlign: 'center', marginTop: '20px', fontSize: '12px',
+          color: '#a39e98', paddingTop: '20px',
+          borderTop: '1px solid rgba(0,0,0,0.06)',
+        }}>
+          エピスミントサイトと同じID・パスワードでログインできます
+        </p>
       </div>
     </div>
   );
