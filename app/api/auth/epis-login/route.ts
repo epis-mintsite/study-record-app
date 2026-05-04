@@ -5,28 +5,16 @@ import { createAdminClient } from '@/lib/supabase-admin';
 // エピスAPIからuserTypeを取得
 async function getEpisUserType(episUserId: string, idToken: string): Promise<string | null> {
   const apiUrl = process.env.EPIS_API_URL;
-  console.log('[epis-login] EPIS_API_URL:', apiUrl ? 'set' : 'NOT SET');
   if (!apiUrl) return null;
 
   try {
-    const url = `${apiUrl}/users/${episUserId}`;
-    console.log('[epis-login] fetching:', url);
-    const res = await fetch(url, {
+    const res = await fetch(`${apiUrl}/users/${episUserId}`, {
       headers: { Authorization: `Bearer ${idToken}` },
     });
-    console.log('[epis-login] epis API status:', res.status);
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      console.log('[epis-login] epis API error body:', text.slice(0, 200));
-      return null;
-    }
+    if (!res.ok) return null;
     const json = await res.json();
-    console.log('[epis-login] epis API json:', JSON.stringify(json).slice(0, 300));
-    const result = json?.data?.userType?.enUsertypeName ?? null;
-    console.log('[epis-login] enUsertypeName:', result);
-    return result;
-  } catch (e) {
-    console.error('[epis-login] epis API fetch error:', e);
+    return json?.data?.userType?.enUsertypeName ?? null;
+  } catch {
     return null;
   }
 }
@@ -90,11 +78,9 @@ export async function POST(req: NextRequest) {
           .from('users')
           .update({ role })
           .eq('id', supabaseUid);
-        console.log('[epis-login] role from epis API:', role);
       } else {
         // エピスAPI失敗 → DBのロールをそのまま使用
         role = existingRole ?? 'student';
-        console.log('[epis-login] role from DB (epis API unavailable):', role);
       }
 
     } else {
