@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { getUserRole } from '@/lib/db';
 import Link from 'next/link';
-import { LogOut, Users, Send, RefreshCw, Trophy } from 'lucide-react';
+import { LogOut, Users, Send, RefreshCw, Trophy, UserPlus, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import PushNotificationButton from '@/app/components/PushNotificationButton';
 
 type UserRow = {
@@ -16,14 +16,45 @@ type UserRow = {
   created_at:        string;
 };
 
+const inputStyle: React.CSSProperties = {
+  width: '100%', border: '1px solid #dddddd', borderRadius: '6px',
+  padding: '8px 12px', fontSize: '14px', color: 'rgba(0,0,0,0.9)',
+  outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+  background: '#ffffff',
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontSize: '12px', fontWeight: 500,
+  color: '#615d59', marginBottom: '5px',
+};
+
 export default function AdminPage() {
   const [users, setUsers]         = useState<UserRow[]>([]);
   const [loading, setLoading]     = useState(true);
   const [slackSending, setSlackSending] = useState(false);
   const [slackMsg, setSlackMsg]   = useState('');
   const [error, setError]         = useState('');
+
+  // デモアカウント作成フォーム
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [demoUserId,   setDemoUserId]   = useState('');
+  const [demoPassword, setDemoPassword] = useState('');
+  const [demoRole,     setDemoRole]     = useState<'student' | 'parent'>('student');
+  const [demoName,     setDemoName]     = useState('');
+  const [creating,     setCreating]     = useState(false);
+  const [createMsg,    setCreateMsg]    = useState('');
+
   const router  = useRouter();
   const supabase = createClient();
+
+  async function loadUsers() {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) { setError('ユーザー取得に失敗しました。'); }
+    else        { setUsers(data ?? []); }
+  }
 
   useEffect(() => {
     (async () => {
@@ -33,14 +64,7 @@ export default function AdminPage() {
       const role = await getUserRole(user.id);
       if (role !== 'admin') { router.replace('/weekly'); return; }
 
-      // ユーザー一覧取得
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) { setError('ユーザー取得に失敗しました。'); }
-      else        { setUsers(data ?? []); }
+      await loadUsers();
       setLoading(false);
     })();
   }, []);
@@ -70,6 +94,39 @@ export default function AdminPage() {
       setSlackMsg('❌ 送信に失敗しました。');
     } finally {
       setSlackSending(false);
+    }
+  }
+
+  async function handleCreateDemoUser(e: React.FormEvent) {
+    e.preventDefault();
+    setCreating(true);
+    setCreateMsg('');
+    try {
+      const res = await fetch('/api/admin/create-demo-user', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          userId:   demoUserId.trim(),
+          password: demoPassword,
+          role:     demoRole,
+          name:     demoName.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCreateMsg(`✅ 作成完了：${data.name || data.userId}（${demoRole === 'student' ? '生徒' : '保護者'}）　ID: ${data.userId}`);
+        setDemoUserId('');
+        setDemoPassword('');
+        setDemoName('');
+        // 一覧を再取得
+        await loadUsers();
+      } else {
+        setCreateMsg(`❌ ${data.error}`);
+      }
+    } catch {
+      setCreateMsg('❌ 作成に失敗しました。');
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -182,7 +239,7 @@ export default function AdminPage() {
         </div>
 
         {/* Slack日報手動送信 */}
-        <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.08)', padding: '20px', marginBottom: '20px' }}>
+        <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.08)', padding: '20px', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>Slack日報を今すぐ送信</div>
@@ -205,6 +262,138 @@ export default function AdminPage() {
           {slackMsg && (
             <div style={{ marginTop: '12px', fontSize: '13px', color: slackMsg.startsWith('✅') ? '#27ae60' : '#c0392b' }}>
               {slackMsg}
+            </div>
+          )}
+        </div>
+
+        {/* デモアカウント作成 */}
+        <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.08)', marginBottom: '20px', overflow: 'hidden' }}>
+          {/* アコーディオンヘッダー */}
+          <button
+            onClick={() => { setShowCreateForm(v => !v); setCreateMsg(''); }}
+            style={{
+              width: '100%', padding: '18px 20px', border: 'none', background: 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <UserPlus size={16} color="#615d59" />
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>デモアカウントを作成</div>
+                <div style={{ fontSize: '12px', color: '#a39e98', marginTop: '2px' }}>エピスIDに依存しないデモ用ログインアカウントを発行します</div>
+              </div>
+            </div>
+            {showCreateForm
+              ? <ChevronUp size={16} color="#a39e98" />
+              : <ChevronDown size={16} color="#a39e98" />
+            }
+          </button>
+
+          {/* フォーム本体 */}
+          {showCreateForm && (
+            <div style={{ padding: '0 20px 20px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              <form onSubmit={handleCreateDemoUser} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '16px' }}>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>ユーザーID <span style={{ color: '#c0392b' }}>*</span></label>
+                    <input
+                      type="text"
+                      value={demoUserId}
+                      onChange={e => setDemoUserId(e.target.value)}
+                      required
+                      placeholder="例：demo01"
+                      pattern="[a-zA-Z0-9]+"
+                      title="アルファベットと数字のみ"
+                      style={inputStyle}
+                    />
+                    <div style={{ fontSize: '11px', color: '#a39e98', marginTop: '4px' }}>アルファベット・数字のみ</div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>パスワード <span style={{ color: '#c0392b' }}>*</span></label>
+                    <input
+                      type="text"
+                      value={demoPassword}
+                      onChange={e => setDemoPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      placeholder="6文字以上"
+                      style={inputStyle}
+                    />
+                    <div style={{ fontSize: '11px', color: '#a39e98', marginTop: '4px' }}>ログイン時に使用するパスワード</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>表示名</label>
+                    <input
+                      type="text"
+                      value={demoName}
+                      onChange={e => setDemoName(e.target.value)}
+                      placeholder="例：デモ生徒A"
+                      style={inputStyle}
+                    />
+                    <div style={{ fontSize: '11px', color: '#a39e98', marginTop: '4px' }}>省略時はセットアップ画面で設定</div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>役割 <span style={{ color: '#c0392b' }}>*</span></label>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                      {(['student', 'parent'] as const).map(r => (
+                        <label key={r} style={{
+                          display: 'flex', alignItems: 'center', gap: '6px',
+                          padding: '7px 14px', borderRadius: '6px', cursor: 'pointer',
+                          border: `1px solid ${demoRole === r ? '#0075de' : '#dddddd'}`,
+                          background: demoRole === r ? '#e8f4fd' : '#ffffff',
+                          fontSize: '13px', fontWeight: demoRole === r ? 600 : 400,
+                          color: demoRole === r ? '#0075de' : '#615d59',
+                          flex: 1, justifyContent: 'center',
+                        }}>
+                          <input
+                            type="radio"
+                            name="demoRole"
+                            value={r}
+                            checked={demoRole === r}
+                            onChange={() => setDemoRole(r)}
+                            style={{ display: 'none' }}
+                          />
+                          {r === 'student' ? '生徒' : '保護者'}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={creating}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    padding: '10px 20px', borderRadius: '6px', border: 'none',
+                    background: creating ? '#a39e98' : '#0075de', color: '#ffffff',
+                    fontSize: '14px', fontWeight: 600,
+                    cursor: creating ? 'default' : 'pointer', fontFamily: 'inherit',
+                    alignSelf: 'flex-start',
+                  }}
+                >
+                  {creating
+                    ? <><Loader2 size={14} className="animate-spin" /> 作成中...</>
+                    : <><UserPlus size={14} /> アカウントを作成</>
+                  }
+                </button>
+
+                {createMsg && (
+                  <div style={{
+                    padding: '10px 14px', borderRadius: '6px', fontSize: '13px',
+                    background: createMsg.startsWith('✅') ? '#edfaf1' : '#fff5f5',
+                    color:      createMsg.startsWith('✅') ? '#27ae60' : '#c0392b',
+                    border: `1px solid ${createMsg.startsWith('✅') ? 'rgba(39,174,96,0.2)' : 'rgba(220,38,38,0.15)'}`,
+                  }}>
+                    {createMsg}
+                  </div>
+                )}
+              </form>
             </div>
           )}
         </div>
