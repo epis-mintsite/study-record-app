@@ -105,7 +105,7 @@ export async function getStudentProfile(studentId: string): Promise<{ name: stri
   return { name: data.name };
 }
 
-export async function getUserRole(userId: string): Promise<'student' | 'parent' | null> {
+export async function getUserRole(userId: string): Promise<'student' | 'parent' | 'admin' | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = createClient();
   const { data, error } = await supabase
@@ -114,7 +114,7 @@ export async function getUserRole(userId: string): Promise<'student' | 'parent' 
     .eq('id', userId)
     .single();
   if (error) return null;
-  return data?.role as 'student' | 'parent' | null;
+  return data?.role as 'student' | 'parent' | 'admin' | null;
 }
 
 // ---- Test Results ----

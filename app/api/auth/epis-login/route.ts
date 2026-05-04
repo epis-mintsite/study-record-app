@@ -2,6 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth } from '@/lib/firebase-admin';
 import { createAdminClient } from '@/lib/supabase-admin';
 
+// エピスAPIからuserTypeを取得
+async function getEpisUserType(episUserId: string, idToken: string): Promise<string | null> {
+  const apiUrl = process.env.EPIS_API_URL;
+  if (!apiUrl) return null;
+
+  try {
+    const res = await fetch(`${apiUrl}/users/${episUserId}`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.data?.userType?.enUsertypeName ?? null; // 'Student' | 'Teacher' | 'Parent' etc.
+  } catch {
+    return null;
+  }
+}
+
+// userType → Supabase role に変換
+function toRole(enUserTypeName: string | null): 'student' | 'parent' | 'admin' {
+  switch (enUserTypeName) {
+    case 'Teacher':   return 'admin';
+    case 'Parent':    return 'parent';
+    default:          return 'student';
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { idToken } = await req.json() as { idToken: string };
@@ -18,9 +44,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '認証情報が不正です。' }, { status: 401 });
     }
 
+    // エピスミントサイトのユーザーID（@example.com を除いた部分）
+    const episUserId = email.replace('@example.com', '');
+
+    // 2. エピスAPIでuserTypeを取得 → ロールを決定
+    const enUserTypeName = await getEpisUserType(episUserId, idToken);
+    const role = toRole(enUserTypeName);
+
     const supabaseAdmin = createAdminClient();
 
-    // 2. Supabase に同メールのユーザーが存在するか確認
+    // 3. Supabase に同メールのユーザーが存在するか確認
     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
     const existingUser = existingUsers?.users.find(u => u.email === email);
 
@@ -30,10 +63,16 @@ export async function POST(req: NextRequest) {
     if (existingUser) {
       // --- 既存ユーザー ---
       supabaseUid = existingUser.id;
+
+      // ロールが変わっていれば更新（先生→管理者など）
+      await supabaseAdmin
+        .from('users')
+        .update({ role })
+        .eq('id', supabaseUid);
+
     } else {
       // --- 初回ログイン：Supabase にユーザーを自動作成 ---
-      // パスワードは Firebase 側で管理するため、ランダムな値をセット
-      // public.users への挿入は handle_new_user トリガーが自動で行う
+      // public.users への挿入は handle_new_user トリガーが自動で行う（role='student'）
       const tempPassword = crypto.randomUUID() + crypto.randomUUID();
 
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -49,9 +88,15 @@ export async function POST(req: NextRequest) {
 
       supabaseUid = newUser.user.id;
       isNewUser   = true;
+
+      // トリガーは role='student' で作成するため、正しいロールに上書き
+      await supabaseAdmin
+        .from('users')
+        .update({ role })
+        .eq('id', supabaseUid);
     }
 
-    // 3. マジックリンクトークンを発行（セッション確立用）
+    // 4. マジックリンクトークンを発行（セッション確立用）
     const { data: linkData, error: linkError } =
       await supabaseAdmin.auth.admin.generateLink({
         type:  'magiclink',
@@ -69,6 +114,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       hashed_token: linkData.properties.hashed_token,
       is_new_user:  isNewUser,
+      role,
     });
 
   } catch (err) {

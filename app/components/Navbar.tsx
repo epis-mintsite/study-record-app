@@ -26,7 +26,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, signOut } = useAuth();
-  const [role, setRole] = useState<'student' | 'parent' | null>(null);
+  const [role, setRole] = useState<'student' | 'parent' | 'admin' | null>(null);
 
   useEffect(() => {
     if (!user) { setRole(null); return; }
