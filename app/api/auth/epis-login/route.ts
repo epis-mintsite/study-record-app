@@ -5,16 +5,28 @@ import { createAdminClient } from '@/lib/supabase-admin';
 // エピスAPIからuserTypeを取得
 async function getEpisUserType(episUserId: string, idToken: string): Promise<string | null> {
   const apiUrl = process.env.EPIS_API_URL;
+  console.log('[epis-login] EPIS_API_URL:', apiUrl ? 'set' : 'NOT SET');
   if (!apiUrl) return null;
 
   try {
-    const res = await fetch(`${apiUrl}/users/${episUserId}`, {
+    const url = `${apiUrl}/users/${episUserId}`;
+    console.log('[epis-login] fetching:', url);
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${idToken}` },
     });
-    if (!res.ok) return null;
+    console.log('[epis-login] epis API status:', res.status);
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.log('[epis-login] epis API error body:', text.slice(0, 200));
+      return null;
+    }
     const json = await res.json();
-    return json?.data?.userType?.enUsertypeName ?? null; // 'Student' | 'Teacher' | 'Parent' etc.
-  } catch {
+    console.log('[epis-login] epis API json:', JSON.stringify(json).slice(0, 300));
+    const result = json?.data?.userType?.enUsertypeName ?? null;
+    console.log('[epis-login] enUsertypeName:', result);
+    return result;
+  } catch (e) {
+    console.error('[epis-login] epis API fetch error:', e);
     return null;
   }
 }
@@ -48,8 +60,10 @@ export async function POST(req: NextRequest) {
     const episUserId = email.replace('@example.com', '');
 
     // 2. エピスAPIでuserTypeを取得 → ロールを決定
+    console.log('[epis-login] episUserId:', episUserId);
     const enUserTypeName = await getEpisUserType(episUserId, idToken);
     const role = toRole(enUserTypeName);
+    console.log('[epis-login] role determined:', role);
 
     const supabaseAdmin = createAdminClient();
 
