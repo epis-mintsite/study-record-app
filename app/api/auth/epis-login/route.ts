@@ -59,34 +59,49 @@ export async function POST(req: NextRequest) {
     // エピスミントサイトのユーザーID（@example.com を除いた部分）
     const episUserId = email.replace('@example.com', '');
 
-    // 2. エピスAPIでuserTypeを取得 → ロールを決定
-    console.log('[epis-login] episUserId:', episUserId);
-    const enUserTypeName = await getEpisUserType(episUserId, idToken);
-    const role = toRole(enUserTypeName);
-    console.log('[epis-login] role determined:', role);
-
     const supabaseAdmin = createAdminClient();
 
-    // 3. Supabase に同メールのユーザーが存在するか確認
+    // 2. Supabase に同メールのユーザーが存在するか確認
     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
     const existingUser = existingUsers?.users.find(u => u.email === email);
 
     let supabaseUid: string;
     let isNewUser = false;
+    let role: 'student' | 'parent' | 'admin';
 
     if (existingUser) {
       // --- 既存ユーザー ---
       supabaseUid = existingUser.id;
 
-      // ロールが変わっていれば更新（先生→管理者など）
-      await supabaseAdmin
+      // DBの既存ロールを取得
+      const { data: dbUser } = await supabaseAdmin
         .from('users')
-        .update({ role })
-        .eq('id', supabaseUid);
+        .select('role')
+        .eq('id', supabaseUid)
+        .single();
+      const existingRole = dbUser?.role as 'student' | 'parent' | 'admin' | undefined;
+
+      // エピスAPIでuserTypeを取得（取得できた場合のみ上書き）
+      const enUserTypeName = await getEpisUserType(episUserId, idToken);
+      if (enUserTypeName) {
+        // エピスAPIから取得できた場合はロールを更新
+        role = toRole(enUserTypeName);
+        await supabaseAdmin
+          .from('users')
+          .update({ role })
+          .eq('id', supabaseUid);
+        console.log('[epis-login] role from epis API:', role);
+      } else {
+        // エピスAPI失敗 → DBのロールをそのまま使用
+        role = existingRole ?? 'student';
+        console.log('[epis-login] role from DB (epis API unavailable):', role);
+      }
 
     } else {
       // --- 初回ログイン：Supabase にユーザーを自動作成 ---
-      // public.users への挿入は handle_new_user トリガーが自動で行う（role='student'）
+      const enUserTypeName = await getEpisUserType(episUserId, idToken);
+      role = toRole(enUserTypeName); // 取得できなければ 'student'
+
       const tempPassword = crypto.randomUUID() + crypto.randomUUID();
 
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
