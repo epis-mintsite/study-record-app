@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import webpush from 'web-push';
 import { createAdminClient } from '@/lib/supabase-admin';
 
 // 分 → "X時間Y分" 形式に変換
@@ -10,29 +11,40 @@ function fmtMin(min: number): string {
   return `${m}分`;
 }
 
-// JST の今日の日付を YYYY-MM-DD 形式で返す
-function getTodayJST(): string {
-  const jst = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  return jst.toISOString().slice(0, 10);
+// JST の日付を YYYY-MM-DD で返す（offset: 0=今日, -1=昨日）
+function getJSTDate(offset = 0): string {
+  return new Date(Date.now() + (9 * 60 * 60 * 1000) + (offset * 86_400_000))
+    .toISOString()
+    .slice(0, 10);
+}
+
+// web-push の初期化
+function initWebPush() {
+  const publicKey  = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  const email      = process.env.VAPID_EMAIL;
+  if (!publicKey || !privateKey || !email) return false;
+  webpush.setVapidDetails(email, publicKey, privateKey);
+  return true;
 }
 
 export async function GET(req: NextRequest) {
-  // 1. セキュリティチェック（CRON_SECRET による認証）
+  // 1. セキュリティチェック
   const authHeader = req.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
-
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!process.env.SLACK_WEBHOOK_URL) {
-    return NextResponse.json({ error: 'SLACK_WEBHOOK_URL が設定されていません。' }, { status: 503 });
-  }
+  const supabase      = createAdminClient();
+  const yesterdayJST  = getJSTDate(-1);   // 昨日（Slackと通知どちらも昨日分）
+  const todayLabel    = (() => {
+    const d    = new Date(yesterdayJST + 'T00:00:00+09:00');
+    const week = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${week}）`;
+  })();
 
-  const todayJST = getTodayJST();
-  const supabase = createAdminClient();
-
-  // 2. 今日の学習記録を全生徒分取得
+  // 2. 昨日の学習記録を全生徒分取得
   const { data: records, error } = await supabase
     .from('study_records')
     .select(`
@@ -43,18 +55,17 @@ export async function GET(req: NextRequest) {
         role
       )
     `)
-    .eq('date', todayJST);
+    .eq('date', yesterdayJST);
 
   if (error) {
     console.error('daily-report DB error:', error);
     return NextResponse.json({ error: 'DB取得に失敗しました。' }, { status: 500 });
   }
 
-  // 3. 生徒のみ抽出・合計時間を計算
+  // 3. 生徒のみ抽出・合計時間を計算・降順ソート
   type UserRow   = { id: string; name: string; role: string };
   type RecordRow = { daily_totals: Record<string, number>; users: UserRow | UserRow[] | null };
 
-  // Supabase の join は配列で返ることがあるため正規化
   const normalize = (u: UserRow | UserRow[] | null): UserRow | null =>
     Array.isArray(u) ? (u[0] ?? null) : u;
 
@@ -74,65 +85,111 @@ export async function GET(req: NextRequest) {
     .filter(r => r.totalMin > 0)
     .sort((a, b) => b.totalMin - a.totalMin);
 
-  // 4. Slack Block Kit メッセージを構築
-  const dateLabel = (() => {
-    const d = new Date(todayJST + 'T00:00:00+09:00');
-    const week = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
-    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日（${week}）`;
-  })();
+  // 4. Slack Block Kit メッセージを構築・送信
+  let slackOk = false;
+  if (process.env.SLACK_WEBHOOK_URL) {
+    const blocks: object[] = [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: `📚 学習記録日報　${todayLabel}`, emoji: true },
+      },
+      { type: 'divider' },
+    ];
 
-  const blocks: object[] = [
-    {
-      type: 'header',
-      text: { type: 'plain_text', text: `📚 学習記録日報　${dateLabel}`, emoji: true },
-    },
-    { type: 'divider' },
-  ];
-
-  if (studentRecords.length === 0) {
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: '本日の学習記録はありません。' },
-    });
-  } else {
-    for (const r of studentRecords) {
+    if (studentRecords.length === 0) {
       blocks.push({
         type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `*${r.name}*　合計：${fmtMin(r.totalMin)}\n${r.subjects || '記録なし'}`,
-        },
+        text: { type: 'mrkdwn', text: '昨日の学習記録はありません。' },
       });
-      blocks.push({ type: 'divider' });
+    } else {
+      for (const r of studentRecords) {
+        blocks.push({
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*${r.name}*　合計：${fmtMin(r.totalMin)}\n${r.subjects || '記録なし'}`,
+          },
+        });
+        blocks.push({ type: 'divider' });
+      }
     }
+
+    blocks.push({
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: '週間学習記録アプリより自動送信 | study-record-app-six.vercel.app' }],
+    });
+
+    const slackRes = await fetch(process.env.SLACK_WEBHOOK_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ blocks }),
+    });
+    slackOk = slackRes.ok;
+    if (!slackRes.ok) console.error('Slack send error:', await slackRes.text());
   }
 
-  blocks.push({
-    type: 'context',
-    elements: [
-      {
-        type: 'mrkdwn',
-        text: '週間学習記録アプリより自動送信 | study-record-app-six.vercel.app',
-      },
-    ],
-  });
+  // 5. Web Push 通知を全購読者に送信
+  let pushSent = 0;
+  let pushFailed = 0;
 
-  // 5. Slack に送信
-  const slackRes = await fetch(process.env.SLACK_WEBHOOK_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ blocks }),
-  });
+  if (initWebPush()) {
+    // push_subscriptions テーブルから全件取得
+    const { data: subs } = await supabase
+      .from('push_subscriptions')
+      .select('user_id, subscription');
 
-  if (!slackRes.ok) {
-    const body = await slackRes.text();
-    console.error('Slack send error:', body);
-    return NextResponse.json({ error: 'Slack送信に失敗しました。' }, { status: 500 });
+    if (subs && subs.length > 0) {
+      // 通知本文を作成
+      const top3 = studentRecords.slice(0, 3);
+      const bodyLines = top3.map((r, i) => {
+        const medal = ['🥇', '🥈', '🥉'][i];
+        return `${medal} ${r.name}（${fmtMin(r.totalMin)}）`;
+      });
+
+      const payload = JSON.stringify({
+        title: `📊 ${todayLabel} ランキング`,
+        body:  studentRecords.length === 0
+          ? '昨日の学習記録がありません。今日から頑張ろう！'
+          : bodyLines.join('\n'),
+        url: '/ranking',
+      });
+
+      // 全購読者に並列送信
+      const results = await Promise.allSettled(
+        subs.map(row =>
+          webpush.sendNotification(
+            row.subscription as webpush.PushSubscription,
+            payload
+          )
+        )
+      );
+
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        if (result.status === 'fulfilled') {
+          pushSent++;
+        } else {
+          pushFailed++;
+          // 410 Gone = 購読が無効（ブラウザが削除済み）→ DBから削除
+          const err = result.reason as { statusCode?: number };
+          if (err?.statusCode === 410 || err?.statusCode === 404) {
+            await supabase
+              .from('push_subscriptions')
+              .delete()
+              .eq('user_id', subs[i].user_id);
+          }
+          console.error(`push failed for user ${subs[i].user_id}:`, err?.statusCode);
+        }
+      }
+    }
   }
 
   return NextResponse.json({
     ok:               true,
-    date:             todayJST,
+    date:             yesterdayJST,
     studentsReported: studentRecords.length,
+    slackOk,
+    pushSent,
+    pushFailed,
   });
 }

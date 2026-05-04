@@ -12,6 +12,7 @@ import {
   getUserRole, getStudentProfile,
   getStudyRecords, getTestResults, getWeeklyReview, getCustomCategories,
 } from '@/lib/db';
+import { CustomCategory } from '@/lib/types';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
@@ -54,7 +55,7 @@ export default function AdminStudentPage({ params }: { params: Promise<{ student
   const [testResults,  setTestResults]  = useState<TestResult[]>([]);
   const [review,       setReview]       = useState<WeeklyReview | null>(null);
   const [monthlyData,  setMonthlyData]  = useState<Record<string, string | number>[]>([]);
-  const [categories,   setCategories]   = useState<{ id: string; name: string; color: string }[]>([]);
+  const [categories,   setCategories]   = useState<CustomCategory[]>([]);
 
   // tabs
   const [tab, setTab] = useState<'weekly' | 'tests' | 'review'>('weekly');

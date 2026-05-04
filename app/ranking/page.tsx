@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Trophy } from 'lucide-react';
 import Navbar from '@/app/components/Navbar';
+import PushNotificationButton from '@/app/components/PushNotificationButton';
 import { useAuth } from '@/lib/useAuth';
 
 type RankEntry = {
@@ -75,11 +76,14 @@ export default function RankingPage() {
       <main style={{ flex: 1, maxWidth: '600px', margin: '0 auto', width: '100%', padding: '32px 20px 80px' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-          <Trophy size={22} color="#F59E0B" />
-          <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'rgba(0,0,0,0.95)', margin: 0, letterSpacing: '-0.4px' }}>
-            学習ランキング
-          </h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Trophy size={22} color="#F59E0B" />
+            <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'rgba(0,0,0,0.95)', margin: 0, letterSpacing: '-0.4px' }}>
+              学習ランキング
+            </h1>
+          </div>
+          <PushNotificationButton />
         </div>
 
         {/* Tab switcher */}
