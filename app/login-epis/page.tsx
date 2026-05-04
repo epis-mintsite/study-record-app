@@ -60,7 +60,8 @@ export default function EpisLoginPage() {
       });
       if (otpError) throw new Error('セッションの確立に失敗しました。');
 
-      router.push('/weekly');
+      // 初回ログインはセットアップページへ、2回目以降は週間表へ
+      router.push(data.is_new_user ? '/setup' : '/weekly');
     } catch (err: unknown) {
       // パスワードが変わっていた場合（再同期）は自動リトライ
       if (err instanceof Error && err.message.includes('auth/wrong-password')) {

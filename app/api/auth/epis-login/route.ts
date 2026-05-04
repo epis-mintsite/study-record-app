@@ -18,9 +18,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '認証情報が不正です。' }, { status: 401 });
     }
 
-    // エピスミントサイトのユーザーID（@example.com を除いた部分）
-    const episUserId = email.replace('@example.com', '');
-
     const supabaseAdmin = createAdminClient();
 
     // 2. Supabase に同メールのユーザーが存在するか確認
@@ -28,6 +25,7 @@ export async function POST(req: NextRequest) {
     const existingUser = existingUsers?.users.find(u => u.email === email);
 
     let supabaseUid: string;
+    let isNewUser = false;
 
     if (existingUser) {
       // --- 既存ユーザー ---
@@ -35,12 +33,13 @@ export async function POST(req: NextRequest) {
     } else {
       // --- 初回ログイン：Supabase にユーザーを自動作成 ---
       // パスワードは Firebase 側で管理するため、ランダムな値をセット
+      // public.users への挿入は handle_new_user トリガーが自動で行う
       const tempPassword = crypto.randomUUID() + crypto.randomUUID();
 
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password:      tempPassword,
-        email_confirm: true,   // メール確認不要
+        email_confirm: true,
       });
 
       if (createError || !newUser.user) {
@@ -49,17 +48,10 @@ export async function POST(req: NextRequest) {
       }
 
       supabaseUid = newUser.user.id;
-
-      // public.users にも初期レコードを作成
-      await supabaseAdmin.from('users').insert({
-        id:   supabaseUid,
-        name: episUserId,   // 初期値としてユーザーIDをセット（後から変更可）
-        role: 'student',
-      });
+      isNewUser   = true;
     }
 
-    // 3. マジックリンクトークンを発行（createSession の代替）
-    //    クライアントが verifyOtp でこのトークンを交換してセッションを取得する
+    // 3. マジックリンクトークンを発行（セッション確立用）
     const { data: linkData, error: linkError } =
       await supabaseAdmin.auth.admin.generateLink({
         type:  'magiclink',
@@ -76,11 +68,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       hashed_token: linkData.properties.hashed_token,
+      is_new_user:  isNewUser,
     });
 
   } catch (err) {
     console.error('epis-login error:', err);
-    // Firebase Token 検証失敗（IDまたはパスワードが間違い）
     return NextResponse.json(
       { error: 'IDまたはパスワードが正しくありません。' },
       { status: 401 },
