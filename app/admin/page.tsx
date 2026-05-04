@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { getUserRole } from '@/lib/db';
+import Link from 'next/link';
 import { LogOut, Users, Send, RefreshCw } from 'lucide-react';
 
 type UserRow = {
@@ -204,7 +205,19 @@ export default function AdminPage() {
                 {users.map((u, i) => (
                   <tr key={u.id} style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(0,0,0,0.05)' }}>
                     <td style={{ padding: '12px 16px', fontWeight: 500, color: 'rgba(0,0,0,0.85)' }}>
-                      {u.name}
+                      {u.role === 'student' ? (
+                        <Link
+                          href={`/admin/students/${u.id}`}
+                          style={{
+                            color: '#0075de', textDecoration: 'none', fontWeight: 600,
+                            borderBottom: '1px solid rgba(0,117,222,0.3)',
+                          }}
+                        >
+                          {u.name || '（未設定）'}
+                        </Link>
+                      ) : (
+                        u.name || '（未設定）'
+                      )}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{
