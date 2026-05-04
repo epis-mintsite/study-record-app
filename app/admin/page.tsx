@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { getUserRole } from '@/lib/db';
 import Link from 'next/link';
-import { LogOut, Users, Send, RefreshCw } from 'lucide-react';
+import { LogOut, Users, Send, RefreshCw, Trophy } from 'lucide-react';
+import PushNotificationButton from '@/app/components/PushNotificationButton';
 
 type UserRow = {
   id:                string;
@@ -153,12 +154,39 @@ export default function AdminPage() {
           ))}
         </div>
 
+        {/* ランキング・通知 */}
+        <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.08)', padding: '20px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Trophy size={16} color="#F59E0B" />
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>学習ランキング</div>
+                <div style={{ fontSize: '12px', color: '#a39e98', marginTop: '2px' }}>生徒の学習時間ランキングを確認できます</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <PushNotificationButton />
+              <Link
+                href="/ranking"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '8px 16px', borderRadius: '8px',
+                  background: '#F59E0B', color: '#ffffff',
+                  fontSize: '13px', fontWeight: 600, textDecoration: 'none',
+                }}
+              >
+                <Trophy size={14} /> ランキングを見る
+              </Link>
+            </div>
+          </div>
+        </div>
+
         {/* Slack日報手動送信 */}
         <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.08)', padding: '20px', marginBottom: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>Slack日報を今すぐ送信</div>
-              <div style={{ fontSize: '12px', color: '#a39e98', marginTop: '2px' }}>通常は毎日21:00に自動送信されます</div>
+              <div style={{ fontSize: '12px', color: '#a39e98', marginTop: '2px' }}>通常は毎朝7:00に自動送信されます</div>
             </div>
             <button
               onClick={handleSlackSend}
