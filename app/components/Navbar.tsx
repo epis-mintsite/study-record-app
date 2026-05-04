@@ -2,24 +2,26 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BookOpen, Mic, Users, LogOut, BarChart2, NotebookPen } from 'lucide-react';
+import { BookOpen, Mic, Users, LogOut, BarChart2, NotebookPen, Trophy } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { getUserRole } from '@/lib/db';
 import { useState, useEffect } from 'react';
 
 const studentNavItems = [
-  { href: '/weekly', label: '週間表',   icon: BookOpen },
-  { href: '/record', label: '記録する', icon: Mic },
-  { href: '/tests',  label: '成績',     icon: BarChart2 },
-  { href: '/review', label: '振返り',   icon: NotebookPen },
+  { href: '/weekly',  label: '週間表',      icon: BookOpen },
+  { href: '/record',  label: '記録する',    icon: Mic },
+  { href: '/tests',   label: '成績',        icon: BarChart2 },
+  { href: '/review',  label: '振返り',      icon: NotebookPen },
+  { href: '/ranking', label: 'ランキング',  icon: Trophy },
 ];
 
 const parentNavItems = [
-  { href: '/weekly', label: '週間表',   icon: BookOpen },
-  { href: '/record', label: '記録する', icon: Mic },
-  { href: '/tests',  label: '成績',     icon: BarChart2 },
-  { href: '/review', label: '振返り',   icon: NotebookPen },
-  { href: '/parent', label: '保護者',   icon: Users },
+  { href: '/weekly',  label: '週間表',      icon: BookOpen },
+  { href: '/record',  label: '記録する',    icon: Mic },
+  { href: '/tests',   label: '成績',        icon: BarChart2 },
+  { href: '/review',  label: '振返り',      icon: NotebookPen },
+  { href: '/ranking', label: 'ランキング',  icon: Trophy },
+  { href: '/parent',  label: '保護者',      icon: Users },
 ];
 
 export default function Navbar() {
