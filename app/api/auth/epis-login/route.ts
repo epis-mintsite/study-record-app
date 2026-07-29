@@ -50,7 +50,9 @@ export async function POST(req: NextRequest) {
     const supabaseAdmin = createAdminClient();
 
     // 2. Supabase に同メールのユーザーが存在するか確認
-    const { data: { user: existingUser } } = await supabaseAdmin.auth.admin.getUserByEmail(email);
+    // getUserByEmail は存在しないため listUsers で検索（学校規模なら 1000 件以内に収まる）
+    const { data: { users: allUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+    const existingUser = allUsers?.find(u => u.email === email) ?? null;
 
     let supabaseUid: string;
     let isNewUser = false;
