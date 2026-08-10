@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { getUserRole } from '@/lib/db';
 import Link from 'next/link';
-import { LogOut, Users, Send, RefreshCw, Trophy, UserPlus, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { LogOut, Users, Send, RefreshCw, Trophy, UserPlus, ChevronDown, ChevronUp, Loader2, Database } from 'lucide-react';
 import PushNotificationButton from '@/app/components/PushNotificationButton';
 
 type UserRow = {
@@ -34,6 +34,10 @@ export default function AdminPage() {
   const [slackSending, setSlackSending] = useState(false);
   const [slackMsg, setSlackMsg]   = useState('');
   const [error, setError]         = useState('');
+
+  // デモデータシード
+  const [seeding, setSeeding]   = useState(false);
+  const [seedMsg, setSeedMsg]   = useState('');
 
   // デモアカウント作成フォーム
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -94,6 +98,29 @@ export default function AdminPage() {
       setSlackMsg('❌ 送信に失敗しました。');
     } finally {
       setSlackSending(false);
+    }
+  }
+
+  async function handleSeedDemoData() {
+    if (!confirm('デモユーザー（democ3・democ2・democ1）を作成し、8月分の学習記録を挿入します。\n既存の記録は上書きされます。よろしいですか？')) return;
+    setSeeding(true);
+    setSeedMsg('');
+    try {
+      const res = await fetch('/api/admin/seed-demo-data', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        const summary = (data.results as { userId: string; action: string; recordsInserted: number }[])
+          .map(r => `${r.userId}: ${r.action === 'created' ? '新規作成' : '既存'} / ${r.recordsInserted}件挿入`)
+          .join(' | ');
+        setSeedMsg(`✅ 完了 — ${summary}`);
+        await loadUsers();
+      } else {
+        setSeedMsg(`❌ ${data.error}`);
+      }
+    } catch {
+      setSeedMsg('❌ 実行に失敗しました。');
+    } finally {
+      setSeeding(false);
     }
   }
 
@@ -235,6 +262,42 @@ export default function AdminPage() {
                 <Trophy size={14} /> ランキングを見る
               </Link>
             </div>
+          </div>
+        </div>
+
+        {/* デモデータ挿入 */}
+        <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.08)', padding: '20px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>デモデータを挿入（8月分）</div>
+              <div style={{ fontSize: '12px', color: '#a39e98', marginTop: '2px' }}>
+                中3・中2・中1の3人分のサンプル学習記録を一括作成します
+              </div>
+            </div>
+            <button
+              onClick={handleSeedDemoData}
+              disabled={seeding}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '8px 16px', borderRadius: '6px', border: 'none',
+                background: seeding ? '#a39e98' : '#0075de',
+                color: '#ffffff', fontSize: '13px', fontWeight: 600,
+                cursor: seeding ? 'default' : 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              {seeding ? <><Loader2 size={14} className="animate-spin" /> 実行中...</> : <><Database size={14} /> デモデータを挿入</>}
+            </button>
+          </div>
+          {seedMsg && (
+            <div style={{ marginTop: '12px', fontSize: '12px', color: seedMsg.startsWith('✅') ? '#27ae60' : '#c0392b', lineHeight: 1.6 }}>
+              {seedMsg}
+            </div>
+          )}
+          <div style={{ marginTop: '10px', padding: '10px 12px', background: '#f6f5f4', borderRadius: '6px', fontSize: '12px', color: '#615d59', lineHeight: 1.6 }}>
+            <strong>作成されるアカウント</strong><br />
+            democ3 / Demo2026! — 田中 凛（中3）難関高校受験・夏期集中<br />
+            democ2 / Demo2026! — 鈴木 蒼（中2）部活と両立・週3部活<br />
+            democ1 / Demo2026! — 佐藤 陽（中1）マイペース・英数中心
           </div>
         </div>
 
