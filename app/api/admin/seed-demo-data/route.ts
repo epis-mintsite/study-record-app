@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth } from '@/lib/firebase-admin';
 import { createAdminClient } from '@/lib/supabase-admin';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { TimeSlot } from '@/lib/types';
+import { TimeSlot, TestScore } from '@/lib/types';
 import { computeDailyTotals } from '@/lib/mockData';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -530,6 +530,261 @@ const REVIEW_DATA: Record<string, ReviewPayload[]> = {
   democ1: C1_REVIEWS,
 };
 
+// ── test result seeds ─────────────────────────────────────────────────────────
+
+type TestDef = {
+  date: string;
+  testType: '日本人学校' | 'epis' | '模試' | '検定' | 'その他';
+  testName: string;
+  scores: TestScore[];
+  notes?: string;
+};
+
+function sc(subject: string, score: number, maxScore: number): TestScore {
+  return { subject, score, maxScore };
+}
+function pass(subject: string, score: number, maxScore: number, grade: string): TestScore {
+  return { subject, score, maxScore, grade, passed: true };
+}
+function cert(subject: string, grade: string): TestScore {
+  return { subject, grade, passed: true };
+}
+
+// ── 田中 凛（中3）: 難関高校受験 ──
+// 成績優秀。英数が特に強く、夏の模試でも全教科安定。
+const C3_TESTS: TestDef[] = [
+  // ── 2年生時（過去実績）──
+  {
+    date: '2025-04-22',
+    testType: '日本人学校', testName: '中間テスト',
+    scores: [sc('国語', 79, 100), sc('数学', 84, 100), sc('英語', 88, 100), sc('理科', 77, 100), sc('社会', 74, 100)],
+    notes: '2年生初の中間。英語が学年5位。数学も安定している。',
+  },
+  {
+    date: '2025-07-11',
+    testType: '日本人学校', testName: '期末テスト',
+    scores: [sc('国語', 82, 100), sc('数学', 87, 100), sc('英語', 91, 100), sc('理科', 80, 100), sc('社会', 78, 100)],
+    notes: '全教科で中間より向上。英語は学年3位。',
+  },
+  {
+    date: '2025-10-14',
+    testType: '日本人学校', testName: '中間テスト',
+    scores: [sc('国語', 84, 100), sc('数学', 89, 100), sc('英語', 93, 100), sc('理科', 83, 100), sc('社会', 80, 100)],
+    notes: '2年生2学期。数学で満点近く。受験を意識した勉強の効果が出始めた。',
+  },
+  {
+    date: '2025-12-12',
+    testType: '日本人学校', testName: '期末テスト',
+    scores: [sc('国語', 86, 100), sc('数学', 91, 100), sc('英語', 94, 100), sc('理科', 85, 100), sc('社会', 82, 100)],
+    notes: '2年生最後の期末。英語は学年1位。',
+  },
+  {
+    date: '2025-11-08',
+    testType: 'epis', testName: 'ハイレベルテスト',
+    scores: [sc('英語', 76, 100), sc('数学', 81, 100), sc('国語', 71, 100)],
+    notes: '初のハイレベルテスト受験。全体的に手応えあり。',
+  },
+  {
+    date: '2025-11-22',
+    testType: '検定', testName: '数学検定',
+    scores: [pass('数学', 85, 100, '3級合格')],
+    notes: '3級に一発合格。準2級も視野に入れる。',
+  },
+  // ── 3年生（今年）──
+  {
+    date: '2026-04-09',
+    testType: 'epis', testName: '漢字テスト',
+    scores: [sc('国語', 93, 100)],
+    notes: '最高点タイ。',
+  },
+  {
+    date: '2026-04-09',
+    testType: 'epis', testName: '英単語テスト',
+    scores: [sc('英語', 89, 100)],
+  },
+  {
+    date: '2026-04-21',
+    testType: '日本人学校', testName: '中間テスト',
+    scores: [sc('国語', 88, 100), sc('数学', 92, 100), sc('英語', 96, 100), sc('理科', 87, 100), sc('社会', 85, 100)],
+    notes: '3年生最初の中間。英数ともに学年トップクラス。社会は歴史の細かい知識がまだ不安定。',
+  },
+  {
+    date: '2026-05-17',
+    testType: 'epis', testName: '月例テスト',
+    scores: [sc('英語', 78, 100), sc('数学', 82, 100)],
+    notes: '難易度高めでも安定した得点。',
+  },
+  {
+    date: '2026-05-25',
+    testType: '検定', testName: '漢検',
+    scores: [pass('国語', 178, 200, '3級合格')],
+    notes: '準2級も今後挑戦予定。',
+  },
+  {
+    date: '2026-06-06',
+    testType: '検定', testName: '英検',
+    scores: [cert('英語', '2級合格')],
+    notes: '一次・二次ともに一発合格。面接で流暢に話せたと先生からも評価。',
+  },
+  {
+    date: '2026-06-21',
+    testType: 'epis', testName: '月例テスト',
+    scores: [sc('英語', 81, 100), sc('数学', 86, 100)],
+  },
+  {
+    date: '2026-07-10',
+    testType: '日本人学校', testName: '期末テスト',
+    scores: [sc('国語', 91, 100), sc('数学', 95, 100), sc('英語', 97, 100), sc('理科', 90, 100), sc('社会', 89, 100)],
+    notes: '中間より全教科向上。英語97点は自己ベスト。数学は学年1位。夏の受験勉強への弾みになった。',
+  },
+  {
+    date: '2026-07-15',
+    testType: 'epis', testName: 'ハイレベルテスト',
+    scores: [sc('英語', 83, 100), sc('数学', 89, 100), sc('国語', 78, 100)],
+    notes: '最上位クラス内でも上位成績。数学は特に自信がついてきた。',
+  },
+  {
+    date: '2026-07-27',
+    testType: '模試', testName: '第1回 夏期模擬試験',
+    scores: [sc('英語', 76, 100), sc('数学', 82, 100), sc('国語', 71, 100), sc('理科', 74, 100), sc('社会', 68, 100)],
+    notes: '初の模試。社会（歴史）と国語の記述に課題。夏の集中学習のテーマが明確になった。',
+  },
+  {
+    date: '2026-08-29',
+    testType: '模試', testName: '第2回 夏期模擬試験',
+    scores: [sc('英語', 81, 100), sc('数学', 87, 100), sc('国語', 76, 100), sc('理科', 79, 100), sc('社会', 74, 100)],
+    notes: '夏の集中勉強の成果が出た。全教科で第1回より向上。社会の歴史が大幅アップ。',
+  },
+];
+
+// ── 鈴木 蒼（中2）: 部活と両立 ──
+// 英語は伸びてきているが理科・社会が弱点。ハイレベルは苦手。
+const C2_TESTS: TestDef[] = [
+  // ── 1年生時（過去実績）──
+  {
+    date: '2025-04-22',
+    testType: '日本人学校', testName: '中間テスト',
+    scores: [sc('国語', 65, 100), sc('数学', 62, 100), sc('英語', 68, 100), sc('理科', 58, 100), sc('社会', 61, 100)],
+    notes: '入学後初のテスト。思ったより難しかった。英語は塾で先取りしていたので比較的できた。',
+  },
+  {
+    date: '2025-07-11',
+    testType: '日本人学校', testName: '期末テスト',
+    scores: [sc('国語', 68, 100), sc('数学', 65, 100), sc('英語', 71, 100), sc('理科', 60, 100), sc('社会', 63, 100)],
+    notes: '中間より少し上がった。英語が一番得意科目になってきた。',
+  },
+  {
+    date: '2025-10-14',
+    testType: '日本人学校', testName: '中間テスト',
+    scores: [sc('国語', 69, 100), sc('数学', 66, 100), sc('英語', 73, 100), sc('理科', 61, 100), sc('社会', 64, 100)],
+    notes: '2学期。部活が本格化してきて勉強時間が減った。英語は引き続き好調。',
+  },
+  {
+    date: '2025-12-12',
+    testType: '日本人学校', testName: '期末テスト',
+    scores: [sc('国語', 70, 100), sc('数学', 67, 100), sc('英語', 74, 100), sc('理科', 62, 100), sc('社会', 65, 100)],
+  },
+  // ── 2年生（今年）──
+  {
+    date: '2026-04-09',
+    testType: 'epis', testName: '漢字テスト',
+    scores: [sc('国語', 75, 100)],
+  },
+  {
+    date: '2026-04-09',
+    testType: 'epis', testName: '英単語テスト',
+    scores: [sc('英語', 68, 100)],
+  },
+  {
+    date: '2026-04-21',
+    testType: '日本人学校', testName: '中間テスト',
+    scores: [sc('国語', 72, 100), sc('数学', 68, 100), sc('英語', 76, 100), sc('理科', 64, 100), sc('社会', 70, 100)],
+    notes: '英語が初めて70点台後半に。部活が忙しい中でよく頑張った。理科の計算が苦手。',
+  },
+  {
+    date: '2026-05-17',
+    testType: 'epis', testName: '月例テスト',
+    scores: [sc('英語', 62, 100), sc('数学', 67, 100)],
+    notes: '難しかったが英語は及第点。',
+  },
+  {
+    date: '2026-06-06',
+    testType: '検定', testName: '英検',
+    scores: [pass('英語', 1382, 1950, '3級合格')],
+    notes: '3回目の挑戦でついに合格！リスニングが得意で点数を稼いだ。次は準2級を目指す。',
+  },
+  {
+    date: '2026-06-21',
+    testType: 'epis', testName: '月例テスト',
+    scores: [sc('英語', 65, 100), sc('数学', 70, 100)],
+    notes: '数学が少し上がった。',
+  },
+  {
+    date: '2026-07-10',
+    testType: '日本人学校', testName: '期末テスト',
+    scores: [sc('国語', 74, 100), sc('数学', 72, 100), sc('英語', 79, 100), sc('理科', 67, 100), sc('社会', 66, 100)],
+    notes: '英語は初めて80点に近づいた。数学も少しずつ上向き。理科・社会が課題として残る。',
+  },
+  {
+    date: '2026-07-15',
+    testType: 'epis', testName: 'ハイレベルテスト',
+    scores: [sc('英語', 55, 100), sc('数学', 61, 100)],
+    notes: '最上位クラスのテストは難易度が高い。数学は健闘。英語の長文読解スピードが課題。',
+  },
+];
+
+// ── 佐藤 陽（中1）: マイペース ──
+// 中1入学後初の学校生活。英語・数学は平均的、理科・社会が弱め。
+const C1_TESTS: TestDef[] = [
+  {
+    date: '2026-04-09',
+    testType: 'epis', testName: '漢字テスト',
+    scores: [sc('国語', 63, 100)],
+  },
+  {
+    date: '2026-04-09',
+    testType: 'epis', testName: '英単語テスト',
+    scores: [sc('英語', 58, 100)],
+    notes: '覚えきれなかった単語があった。次回は早めに準備する。',
+  },
+  {
+    date: '2026-04-21',
+    testType: '日本人学校', testName: '中間テスト',
+    scores: [sc('国語', 68, 100), sc('数学', 72, 100), sc('英語', 65, 100), sc('理科', 61, 100), sc('社会', 64, 100)],
+    notes: '中学初のテスト。数学が一番できた。英語はもう少し単語を覚えておけばよかった。',
+  },
+  {
+    date: '2026-05-17',
+    testType: 'epis', testName: '月例テスト',
+    scores: [sc('英語', 52, 100), sc('数学', 60, 100)],
+    notes: '難しかった。数学は計算問題は得意だけど文章題が苦手。',
+  },
+  {
+    date: '2026-05-25',
+    testType: '検定', testName: '英検',
+    scores: [pass('英語', 1102, 1700, '4級合格')],
+    notes: '4級に合格！リスニングが思ったよりできた。次は3級に挑戦したい。',
+  },
+  {
+    date: '2026-06-21',
+    testType: 'epis', testName: '月例テスト',
+    scores: [sc('英語', 55, 100), sc('数学', 63, 100)],
+    notes: '少しずつ上がってきた。',
+  },
+  {
+    date: '2026-07-10',
+    testType: '日本人学校', testName: '期末テスト',
+    scores: [sc('国語', 66, 100), sc('数学', 70, 100), sc('英語', 68, 100), sc('理科', 58, 100), sc('社会', 62, 100)],
+    notes: '数学が70点に！理科は実験の問題が難しかった。2学期はもっと頑張りたい。',
+  },
+];
+
+const TEST_DATA: Record<string, TestDef[]> = {
+  democ3: C3_TESTS,
+  democ2: C2_TESTS,
+  democ1: C1_TESTS,
+};
+
 // ── route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -644,6 +899,24 @@ export async function POST(req: NextRequest) {
             },
             { onConflict: 'user_id,week_start' }
           );
+      }
+
+      // 5. test_results を delete → insert（再実行時の重複防止）
+      await supabaseAdmin
+        .from('test_results')
+        .delete()
+        .eq('user_id', supabaseUid);
+
+      const tests = TEST_DATA[demo.userId] ?? [];
+      for (const t of tests) {
+        await supabaseAdmin.from('test_results').insert({
+          user_id:   supabaseUid,
+          date:      t.date,
+          test_type: t.testType,
+          test_name: t.testName,
+          scores:    t.scores,
+          notes:     t.notes ?? null,
+        });
       }
 
       const last = results[results.length - 1];
