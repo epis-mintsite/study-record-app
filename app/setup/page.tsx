@@ -75,7 +75,7 @@ export default function SetupPage() {
             <rect x="7" y="14" width="8"  height="1.5" rx="0.75" fill="white" />
           </svg>
           <div style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(0,0,0,0.95)', letterSpacing: '-0.2px' }}>
-            週間学習記録
+            まなびログ
           </div>
         </div>
 

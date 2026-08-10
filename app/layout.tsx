@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '週間学習記録',
-  description: '音声で記録する週間学習記録アプリ',
+  title: 'まなびログ',
+  description: '学習記録・振り返りアプリ まなびログ',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -115,7 +115,7 @@ export default function LoginPage() {
           </svg>
           <div>
             <div style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(0,0,0,0.95)', letterSpacing: '-0.2px', lineHeight: 1 }}>
-              週間学習記録
+              まなびログ
             </div>
             <div style={{ fontSize: '12px', color: '#a39e98', marginTop: '2px' }}>
               音声で記録する学習管理アプリ

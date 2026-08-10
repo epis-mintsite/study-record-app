@@ -446,7 +446,7 @@ export default function GuidePage() {
             操作手順書
           </h1>
           <p style={{ fontSize: '14px', color: '#615d59', margin: 0 }}>
-            週間学習記録アプリの各機能をご確認ください。
+            まなびログの各機能をご確認ください。
           </p>
         </div>
 

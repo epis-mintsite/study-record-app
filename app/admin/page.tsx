@@ -175,7 +175,7 @@ export default function AdminPage() {
             </svg>
             <div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(0,0,0,0.95)' }}>管理者ダッシュボード</div>
-              <div style={{ fontSize: '12px', color: '#a39e98' }}>週間学習記録アプリ</div>
+              <div style={{ fontSize: '12px', color: '#a39e98' }}>まなびログ</div>
             </div>
           </div>
           <button
