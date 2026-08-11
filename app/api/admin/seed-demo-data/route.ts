@@ -809,7 +809,7 @@ export async function POST(req: NextRequest) {
     // 2. 既存 Supabase ユーザーを全取得（メール照合用）
     const { data: { users: allSupabaseUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
 
-    const results: { userId: string; action: string; recordsInserted: number }[] = [];
+    const results: { userId: string; action: string; recordsInserted: number; reviewsInserted: number; reviewErrors: string[] }[] = [];
 
     for (const demo of DEMO_USERS) {
       const email = `${demo.userId}@example.com`;
@@ -827,7 +827,7 @@ export async function POST(req: NextRequest) {
           .update({ role: demo.role, name: demo.name })
           .eq('id', supabaseUid);
 
-        results.push({ userId: demo.userId, action: 'existing_user', recordsInserted: 0 });
+        results.push({ userId: demo.userId, action: 'existing_user', recordsInserted: 0, reviewsInserted: 0, reviewErrors: [] });
       } else {
         // 2b. Firebase ユーザー作成（既存ならスキップ）
         let firebaseUid: string | null = null;
@@ -863,7 +863,7 @@ export async function POST(req: NextRequest) {
           .update({ role: demo.role, name: demo.name })
           .eq('id', supabaseUid);
 
-        results.push({ userId: demo.userId, action: 'created', recordsInserted: 0 });
+        results.push({ userId: demo.userId, action: 'created', recordsInserted: 0, reviewsInserted: 0, reviewErrors: [] });
       }
 
       // 3. study_records を upsert（8月分 31日）
@@ -882,23 +882,28 @@ export async function POST(req: NextRequest) {
         if (!error) inserted++;
       }
 
-      // 4. weekly_reviews を upsert
+      // 4. weekly_reviews を delete → insert（再実行時も確実に最新内容へ上書き）
       const reviews = REVIEW_DATA[demo.userId] ?? [];
+      await supabaseAdmin.from('weekly_reviews').delete().eq('user_id', supabaseUid);
+      const last2 = results[results.length - 1];
       for (const rev of reviews) {
-        await supabaseAdmin
+        const { error: revErr } = await supabaseAdmin
           .from('weekly_reviews')
-          .upsert(
-            {
-              user_id: supabaseUid,
-              week_start: rev.weekStart,
-              study_snapshot: rev.studySnapshot,
-              review_text: rev.reviewText,
-              improvement: rev.improvement,
-              test_strategy: rev.testStrategy,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'user_id,week_start' }
-          );
+          .insert({
+            user_id: supabaseUid,
+            week_start: rev.weekStart,
+            study_snapshot: rev.studySnapshot,
+            review_text: rev.reviewText,
+            improvement: rev.improvement,
+            test_strategy: rev.testStrategy,
+            updated_at: new Date().toISOString(),
+          });
+        if (revErr) {
+          last2.reviewErrors.push(`${rev.weekStart}: ${revErr.message}`);
+          console.error('weekly_reviews insert error:', rev.weekStart, revErr);
+        } else {
+          last2.reviewsInserted++;
+        }
       }
 
       // 5. test_results を delete → insert（再実行時の重複防止）
@@ -921,6 +926,7 @@ export async function POST(req: NextRequest) {
 
       const last = results[results.length - 1];
       last.recordsInserted = inserted;
+      // reviewsInserted / reviewErrors は上記ループで already set
     }
 
     return NextResponse.json({ ok: true, results });
