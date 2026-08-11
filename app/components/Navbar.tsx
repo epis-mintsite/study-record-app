@@ -2,26 +2,28 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BookOpen, PenLine, Users, LogOut, BarChart2, NotebookPen, Trophy } from 'lucide-react';
+import { BookOpen, PenLine, Users, LogOut, BarChart2, NotebookPen, Trophy, GraduationCap } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { getUserRole } from '@/lib/db';
 import { useState, useEffect } from 'react';
 
 const studentNavItems = [
-  { href: '/weekly',  label: '週間表',      icon: BookOpen },
-  { href: '/record',  label: '記録する',    icon: PenLine },
-  { href: '/tests',   label: '成績',        icon: BarChart2 },
-  { href: '/review',  label: '振返り',      icon: NotebookPen },
-  { href: '/ranking', label: 'ランキング',  icon: Trophy },
+  { href: '/weekly',     label: '週間表',      icon: BookOpen },
+  { href: '/record',     label: '記録する',    icon: PenLine },
+  { href: '/tests',      label: '成績',        icon: BarChart2 },
+  { href: '/past-exams', label: '過去問',      icon: GraduationCap },
+  { href: '/review',     label: '振返り',      icon: NotebookPen },
+  { href: '/ranking',    label: 'ランキング',  icon: Trophy },
 ];
 
 const parentNavItems = [
-  { href: '/weekly',  label: '週間表',      icon: BookOpen },
-  { href: '/record',  label: '記録する',    icon: PenLine },
-  { href: '/tests',   label: '成績',        icon: BarChart2 },
-  { href: '/review',  label: '振返り',      icon: NotebookPen },
-  { href: '/ranking', label: 'ランキング',  icon: Trophy },
-  { href: '/parent',  label: '保護者',      icon: Users },
+  { href: '/weekly',     label: '週間表',      icon: BookOpen },
+  { href: '/record',     label: '記録する',    icon: PenLine },
+  { href: '/tests',      label: '成績',        icon: BarChart2 },
+  { href: '/past-exams', label: '過去問',      icon: GraduationCap },
+  { href: '/review',     label: '振返り',      icon: NotebookPen },
+  { href: '/ranking',    label: 'ランキング',  icon: Trophy },
+  { href: '/parent',     label: '保護者',      icon: Users },
 ];
 
 export default function Navbar() {

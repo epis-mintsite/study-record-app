@@ -1,5 +1,5 @@
 import { createClient } from './supabase';
-import { StudyRecord, CustomCategory, TimeSlot, TestType, TestScore, TestResult, WeeklyReview } from './types';
+import { StudyRecord, CustomCategory, TimeSlot, TestType, TestScore, TestResult, WeeklyReview, PastExamRecord, PastExamScore, ExamCategory, SchoolPassingScore } from './types';
 import { computeDailyTotals } from './mockData';
 
 function isSupabaseConfigured(): boolean {
@@ -209,4 +209,75 @@ export async function upsertWeeklyReview(
     { onConflict: 'user_id,week_start' }
   );
   if (error) throw new Error(`振返り保存エラー: ${error.message}`);
+}
+
+// ---- Past Exam Records（過去問演習） ----
+
+export async function getPastExamRecords(userId: string): Promise<PastExamRecord[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('past_exam_records')
+    .select('*')
+    .eq('user_id', userId)
+    .order('attempt_date', { ascending: false });
+  if (error) throw new Error(`過去問記録の取得エラー: ${error.message}`);
+  return (data ?? []).map(row => ({
+    id: row.id,
+    userId: row.user_id,
+    schoolName: row.school_name,
+    examCategory: row.exam_category as ExamCategory,
+    examYear: row.exam_year,
+    attemptDate: row.attempt_date,
+    scores: row.scores as PastExamScore[],
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function savePastExamRecord(
+  userId: string,
+  data: { schoolName: string; examCategory: ExamCategory; examYear: number; attemptDate: string; scores: PastExamScore[]; notes?: string }
+): Promise<void> {
+  if (!isSupabaseConfigured()) throw new Error('Supabaseが設定されていません。');
+  const supabase = createClient();
+  const { error } = await supabase.from('past_exam_records').insert({
+    user_id: userId,
+    school_name: data.schoolName,
+    exam_category: data.examCategory,
+    exam_year: data.examYear,
+    attempt_date: data.attemptDate,
+    scores: data.scores,
+    notes: data.notes ?? null,
+  });
+  if (error) throw new Error(`過去問記録の保存エラー: ${error.message}`);
+}
+
+export async function deletePastExamRecord(id: string): Promise<void> {
+  if (!isSupabaseConfigured()) throw new Error('Supabaseが設定されていません。');
+  const supabase = createClient();
+  const { error } = await supabase.from('past_exam_records').delete().eq('id', id);
+  if (error) throw new Error(`過去問記録の削除エラー: ${error.message}`);
+}
+
+// ---- School Passing Scores（合格最低点・参考値。閲覧のみ。登録/編集は /api/admin/passing-scores） ----
+
+export async function getPassingScores(): Promise<SchoolPassingScore[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('school_passing_scores')
+    .select('*')
+    .order('school_name');
+  if (error) throw new Error(`合格最低点の取得エラー: ${error.message}`);
+  return (data ?? []).map(row => ({
+    id: row.id,
+    schoolName: row.school_name,
+    examCategory: row.exam_category as ExamCategory,
+    examYear: row.exam_year,
+    subject: row.subject,
+    passingScore: row.passing_score,
+    maxScore: row.max_score ?? undefined,
+  }));
 }

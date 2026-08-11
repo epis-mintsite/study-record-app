@@ -84,6 +84,37 @@ export type TestResult = {
   createdAt: string;
 };
 
+// ---- Past Exam Records（過去問演習） ----
+
+export type ExamCategory = '一般' | '帰国';
+export const EXAM_CATEGORIES: ExamCategory[] = ['一般', '帰国'];
+
+export type PastExamScore = { subject: string; score: number; maxScore?: number };
+
+export type PastExamRecord = {
+  id: string;
+  userId: string;
+  schoolName: string;
+  examCategory: ExamCategory;
+  examYear: number;
+  attemptDate: string;
+  scores: PastExamScore[];
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// 学校×入試区分×年度×科目の合格最低点（参考値・全校共有の参照データ）
+export type SchoolPassingScore = {
+  id: string;
+  schoolName: string;
+  examCategory: ExamCategory;
+  examYear: number;
+  subject: string;
+  passingScore: number;
+  maxScore?: number;
+};
+
 // ---- Weekly Review ----
 
 export type WeeklyReview = {

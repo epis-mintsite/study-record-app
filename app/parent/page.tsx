@@ -6,12 +6,13 @@ import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Navbar from '@/app/components/Navbar';
 import WeeklyGrid from '@/app/components/WeeklyGrid';
 import { getWeekDates, formatDate } from '@/lib/mockData';
-import { StudyRecord, TestResult, WeeklyReview, TEST_TYPE_COLORS } from '@/lib/types';
+import { StudyRecord, TestResult, WeeklyReview, TEST_TYPE_COLORS, PastExamRecord, SchoolPassingScore, ExamCategory } from '@/lib/types';
 import { useAuth } from '@/lib/useAuth';
 import { createClient } from '@/lib/supabase';
 import {
   getUserRole, getLinkedStudentId, getStudentProfile,
   getStudyRecords, getTestResults, getWeeklyReview,
+  getPastExamRecords, getPassingScores,
 } from '@/lib/db';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
@@ -20,6 +21,11 @@ import {
 const CHART_COLORS: Record<string, string> = {
   '国語': '#C084FC', '数学': '#38BDF8', '英語': '#F472B6',
   '理科': '#4ADE80', '社会': '#FB923C',
+};
+
+const CATEGORY_COLORS: Record<ExamCategory, { bg: string; text: string }> = {
+  '一般': { bg: '#DBEAFE', text: '#1D4ED8' },
+  '帰国': { bg: '#EDE9FE', text: '#5B21B6' },
 };
 
 function pct(score?: number, max?: number) {
@@ -56,9 +62,11 @@ export default function ParentPage() {
   const [testResults,  setTestResults]  = useState<TestResult[]>([]);
   const [review,       setReview]       = useState<WeeklyReview | null>(null);
   const [monthlyData,  setMonthlyData]  = useState<Record<string, string | number>[]>([]);
+  const [pastExams,    setPastExams]    = useState<PastExamRecord[]>([]);
+  const [passingScores, setPassingScores] = useState<SchoolPassingScore[]>([]);
 
   // tabs
-  const [tab, setTab] = useState<'weekly' | 'tests' | 'review'>('weekly');
+  const [tab, setTab] = useState<'weekly' | 'tests' | 'past-exams' | 'review'>('weekly');
 
   // ---- Auth & role check ----
   useEffect(() => {
@@ -90,12 +98,16 @@ export default function ParentPage() {
   // ---- Load test results & review (once per student) ----
   const loadStaticData = useCallback(async (sid: string) => {
     try {
-      const [tests, rev] = await Promise.all([
+      const [tests, rev, exams, scores] = await Promise.all([
         getTestResults(sid),
         getWeeklyReview(sid, weekStart),
+        getPastExamRecords(sid),
+        getPassingScores(),
       ]);
       setTestResults(tests);
       setReview(rev);
+      setPastExams(exams);
+      setPassingScores(scores);
     } catch (e) { console.error(e); }
   }, [weekStart]);
 
@@ -246,7 +258,7 @@ export default function ParentPage() {
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '0' }}>
-          {([['weekly', '週間表'], ['tests', '成績'], ['review', '振返り']] as const).map(([key, label]) => (
+          {([['weekly', '週間表'], ['tests', '成績'], ['past-exams', '過去問'], ['review', '振返り']] as const).map(([key, label]) => (
             <button key={key} onClick={() => setTab(key)} style={{
               padding: '8px 20px', fontSize: '14px', fontWeight: tab === key ? 600 : 500,
               color: tab === key ? '#0075de' : '#615d59',
@@ -336,6 +348,59 @@ export default function ParentPage() {
                           <span style={{ color: '#a39e98', marginLeft: '4px' }}>({Math.round(total / totalMax * 100)}%)</span>
                         </div>
                       )}
+                      {r.notes && <div style={{ marginTop: '6px', fontSize: '12px', color: '#615d59' }}>{r.notes}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ---- 過去問タブ ---- */}
+        {tab === 'past-exams' && (
+          <div>
+            {pastExams.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px', color: '#a39e98', fontSize: '14px' }}>
+                過去問演習の記録がまだありません。
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {pastExams.slice(0, 10).map(r => {
+                  const cc = CATEGORY_COLORS[r.examCategory];
+                  return (
+                    <div key={r.id} style={cardStyle}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                        <span style={{ padding: '2px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600, background: cc.bg, color: cc.text }}>
+                          {r.examCategory}
+                        </span>
+                        <span style={{ fontSize: '15px', fontWeight: 700, color: 'rgba(0,0,0,0.9)' }}>{r.schoolName}</span>
+                        <span style={{ fontSize: '12px', color: '#a39e98' }}>{r.examYear}年度・{r.attemptDate.replace(/-/g, '/')}実施</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {r.scores.map((s, i) => {
+                          const p = pct(s.score, s.maxScore);
+                          const ref = passingScores.find(x => x.schoolName === r.schoolName && x.examCategory === r.examCategory && x.examYear === r.examYear && x.subject === s.subject);
+                          return (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '12px', color: '#615d59', fontWeight: 500, width: '32px' }}>{s.subject}</span>
+                              <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>
+                                {s.score}{s.maxScore != null && <span style={{ color: '#a39e98', fontWeight: 400 }}>/{s.maxScore}</span>}
+                              </span>
+                              {p != null && <span style={{ fontSize: '11px', color: '#a39e98' }}>({p}%)</span>}
+                              {ref && (
+                                <span style={{
+                                  fontSize: '11px', fontWeight: 600, padding: '1px 7px', borderRadius: '4px',
+                                  background: s.score >= ref.passingScore ? '#D1FAE5' : '#FFF7ED',
+                                  color: s.score >= ref.passingScore ? '#065F46' : '#9A5B00',
+                                }}>
+                                  合格最低点(参考) {ref.passingScore}{ref.maxScore != null ? `/${ref.maxScore}` : ''}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                       {r.notes && <div style={{ marginTop: '6px', fontSize: '12px', color: '#615d59' }}>{r.notes}</div>}
                     </div>
                   );
