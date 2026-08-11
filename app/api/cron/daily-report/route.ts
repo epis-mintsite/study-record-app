@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { createAdminClient } from '@/lib/supabase-admin';
+import { isMondayJST, buildWeeklyTrendStats, generateWeeklyTrendText } from '@/lib/weekly-trend';
 
 // 分 → "X時間Y分" 形式に変換
 function fmtMin(min: number): string {
@@ -87,6 +88,7 @@ export async function GET(req: NextRequest) {
 
   // 4. Slack Block Kit メッセージを構築・送信
   let slackOk = false;
+  let weeklyTrendOk: boolean | null = null; // null=月曜以外で未実行, true/false=月曜に実行した結果
   if (process.env.SLACK_WEBHOOK_URL) {
     const blocks: object[] = [
       {
@@ -111,6 +113,23 @@ export async function GET(req: NextRequest) {
           },
         });
         blocks.push({ type: 'divider' });
+      }
+    }
+
+    // 4.5 週次学習トレンド（月曜のみ・Claudeが分析して同じ日報に追記）
+    if (isMondayJST()) {
+      try {
+        const stats = await buildWeeklyTrendStats();
+        const trendText = await generateWeeklyTrendText(stats);
+        blocks.push({
+          type: 'section',
+          text: { type: 'mrkdwn', text: trendText },
+        });
+        blocks.push({ type: 'divider' });
+        weeklyTrendOk = true;
+      } catch (e) {
+        console.error('weekly-trend error:', e);
+        weeklyTrendOk = false;
       }
     }
 
@@ -189,6 +208,7 @@ export async function GET(req: NextRequest) {
     date:             yesterdayJST,
     studentsReported: studentRecords.length,
     slackOk,
+    weeklyTrendOk,
     pushSent,
     pushFailed,
   });
