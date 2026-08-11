@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Save, CheckCircle, Plus, X, Edit3, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Save, CheckCircle, Plus, X, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/app/components/Navbar';
-import { parseVoiceInput } from '@/lib/parseVoiceInput';
 import { TimeSlot, STANDARD_CATEGORIES, CATEGORY_COLORS, CustomCategory } from '@/lib/types';
 import { computeDailyTotals } from '@/lib/mockData';
 import { useAuth } from '@/lib/useAuth';
@@ -14,21 +13,6 @@ const DEMO_CUSTOM_CATS: CustomCategory[] = [
   { id: '1', userId: 'demo', name: 'ピアノ', color: '#FEF9C3' },
   { id: '2', userId: 'demo', name: 'ダンス', color: '#FEE2E2' },
 ];
-
-type SpeechRecognitionInstance = {
-  lang: string; interimResults: boolean; continuous: boolean;
-  onresult: ((e: any) => void) | null;
-  onerror: ((e: any) => void) | null;
-  onend: (() => void) | null;
-  start: () => void; stop: () => void;
-};
-
-declare global {
-  interface Window {
-    SpeechRecognition?: new () => SpeechRecognitionInstance;
-    webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
-  }
-}
 
 function getCategoryBg(category: string, customCats: CustomCategory[]): string {
   if (CATEGORY_COLORS[category]) return CATEGORY_COLORS[category].hex;
@@ -88,23 +72,20 @@ export default function RecordPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [customCats, setCustomCats] = useState<CustomCategory[]>(DEMO_CUSTOM_CATS);
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [interimText, setInterimText] = useState('');
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([
+    { startTime: '09:00', endTime: '10:00', category: '国語', isCustomCategory: false },
+  ]);
   const [saving, setSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [error, setError] = useState('');
-  const [manualMode, setManualMode] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(true);
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
-  useEffect(() => {
-    if (!window.SpeechRecognition && !window.webkitSpeechRecognition) setSpeechSupported(false);
-  }, []);
-
-  // Load user's custom categories
   useEffect(() => {
     if (!authLoading && user) {
       getCustomCategories(user.id).then(cats => {
@@ -112,42 +93,6 @@ export default function RecordPage() {
       }).catch(() => {});
     }
   }, [authLoading, user]);
-
-  function startRecording() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { setError('このブラウザは音声認識に対応していません。手入力モードをご利用ください。'); return; }
-    setError(''); setTranscript(''); setInterimText(''); setTimeSlots([]); setIsSaved(false);
-    const recognition = new SR();
-    recognition.lang = 'ja-JP'; recognition.interimResults = true; recognition.continuous = true;
-    recognitionRef.current = recognition;
-    recognition.onresult = (event: any) => {
-      let final = '', interim = '';
-      for (let i = 0; i < event.results.length; i++) {
-        const r = event.results[i];
-        if (r.isFinal) final += r[0].transcript; else interim += r[0].transcript;
-      }
-      if (final) setTranscript(p => p + final);
-      setInterimText(interim);
-    };
-    recognition.onerror = (event: any) => {
-      setError(event.error === 'not-allowed' ? 'マイクのアクセスが許可されていません。' : `音声認識エラー: ${event.error}`);
-      setIsRecording(false);
-    };
-    recognition.onend = () => { setIsRecording(false); setInterimText(''); };
-    recognition.start(); setIsRecording(true);
-  }
-
-  function stopRecording() { recognitionRef.current?.stop(); setIsRecording(false); }
-
-  function handleAnalyze() {
-    if (!transcript.trim()) { setError('音声テキストが空です。もう一度録音してください。'); return; }
-    const parsed = parseVoiceInput(transcript, customCats.map(c => c.name));
-    if (parsed.length === 0) {
-      setError('学習内容を認識できませんでした。時刻と科目を含めて話してください。例：「9時から10時まで国語の漢字ドリル」');
-      return;
-    }
-    setTimeSlots(parsed); setError('');
-  }
 
   async function handleSave() {
     if (timeSlots.length === 0 || saving) return;
@@ -157,7 +102,6 @@ export default function RecordPage() {
       if (user) {
         await upsertStudyRecord(user.id, selectedDate, timeSlots);
       } else {
-        // Demo: just simulate
         await new Promise(r => setTimeout(r, 400));
       }
       setIsSaved(true);
@@ -190,7 +134,6 @@ export default function RecordPage() {
       <Navbar />
       <main style={{ flex: 1, maxWidth: '640px', margin: '0 auto', width: '100%', padding: '32px 24px 64px' }}>
 
-        {/* Demo banner */}
         {!user && (
           <div style={{
             background: '#f6f5f4', border: '1px solid rgba(0,0,0,0.08)', borderRadius: '6px',
@@ -213,72 +156,6 @@ export default function RecordPage() {
           }} />
         </div>
 
-        {/* Mode toggle */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          {[
-            { mode: false, icon: <Mic size={14} />, label: '音声入力' },
-            { mode: true, icon: <Edit3 size={14} />, label: '手入力' },
-          ].map(({ mode, icon, label }) => (
-            <button key={label} onClick={() => { setManualMode(mode); if (mode) { setIsRecording(false); recognitionRef.current?.stop(); } }}
-              style={{
-                flex: 1, padding: '8px 16px', borderRadius: '4px', cursor: 'pointer',
-                fontSize: '14px', fontWeight: manualMode === mode ? 600 : 500, fontFamily: 'inherit',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                border: manualMode === mode ? 'none' : '1px solid rgba(0,0,0,0.1)',
-                background: manualMode === mode ? '#0075de' : 'rgba(0,0,0,0.03)',
-                color: manualMode === mode ? '#ffffff' : '#615d59',
-              }}>
-              {icon} {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Voice input */}
-        {!manualMode && (
-          <div style={{ ...cardStyle, marginBottom: '16px', textAlign: 'center' }}>
-            {!speechSupported ? (
-              <p style={{ color: '#615d59', fontSize: '14px', margin: 0 }}>このブラウザは音声認識に対応していません。</p>
-            ) : (
-              <>
-                <button onClick={isRecording ? stopRecording : startRecording} aria-label={isRecording ? '録音停止' : '録音開始'}
-                  style={{
-                    width: '80px', height: '80px', borderRadius: '50%', cursor: 'pointer',
-                    border: isRecording ? '2px solid rgba(220,38,38,0.3)' : '1px solid rgba(0,0,0,0.1)',
-                    background: isRecording ? 'rgba(254,226,226,0.6)' : '#f6f5f4',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px',
-                    boxShadow: isRecording ? '0 0 0 6px rgba(220,38,38,0.08)' : 'none',
-                  }}>
-                  {isRecording ? <MicOff size={28} color="#dc2626" /> : <Mic size={28} color="#615d59" />}
-                </button>
-                <p style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(0,0,0,0.95)', margin: '0 0 4px' }}>
-                  {isRecording ? '録音中… タップで停止' : '録音開始'}
-                </p>
-                <p style={{ fontSize: '12px', color: '#a39e98', margin: 0 }}>
-                  例：「9時から10時まで国語の漢字ドリル、その後数学を30分」
-                </p>
-              </>
-            )}
-            {(transcript || interimText) && (
-              <div style={{ marginTop: '16px', textAlign: 'left', background: '#f6f5f4', borderRadius: '6px', padding: '12px' }}>
-                <p style={{ fontSize: '11px', fontWeight: 500, color: '#a39e98', margin: '0 0 4px' }}>認識テキスト</p>
-                <p style={{ fontSize: '14px', color: 'rgba(0,0,0,0.85)', margin: 0, lineHeight: 1.5 }}>
-                  {transcript}
-                  {interimText && <span style={{ color: '#a39e98' }}>{interimText}</span>}
-                </p>
-              </div>
-            )}
-            {transcript && !isRecording && (
-              <button onClick={handleAnalyze} style={{
-                marginTop: '14px', padding: '8px 24px', borderRadius: '4px',
-                border: 'none', background: '#0075de', color: '#ffffff',
-                fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-              }}>
-                解析する
-              </button>
-            )}
-          </div>
-        )}
-
         {/* Error */}
         {error && (
           <div style={{
@@ -291,27 +168,25 @@ export default function RecordPage() {
         )}
 
         {/* Slots */}
-        {(timeSlots.length > 0 || manualMode) && (
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(0,0,0,0.95)', margin: 0 }}>
-                {manualMode ? '学習内容を入力' : '解析結果を確認・修正'}
-              </h2>
-              <button onClick={() => setTimeSlots(prev => [...prev, { startTime: '09:00', endTime: '10:00', category: '国語', isCustomCategory: false }])}
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 500, color: '#0075de', fontFamily: 'inherit' }}>
-                <Plus size={13} /> 追加
-              </button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {timeSlots.map((slot, i) => (
-                <SlotCard key={i} index={i} slot={slot} customCats={customCats}
-                  onChange={updated => setTimeSlots(prev => prev.map((s, j) => j === i ? updated : s))}
-                  onDelete={() => setTimeSlots(prev => prev.filter((_, j) => j !== i))}
-                />
-              ))}
-            </div>
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(0,0,0,0.95)', margin: 0 }}>学習内容を入力</h2>
+            <button
+              onClick={() => setTimeSlots(prev => [...prev, { startTime: '09:00', endTime: '10:00', category: '国語', isCustomCategory: false }])}
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 500, color: '#0075de', fontFamily: 'inherit' }}
+            >
+              <Plus size={13} /> 追加
+            </button>
           </div>
-        )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {timeSlots.map((slot, i) => (
+              <SlotCard key={i} index={i} slot={slot} customCats={customCats}
+                onChange={updated => setTimeSlots(prev => prev.map((s, j) => j === i ? updated : s))}
+                onDelete={() => setTimeSlots(prev => prev.filter((_, j) => j !== i))}
+              />
+            ))}
+          </div>
+        </div>
 
         {/* Save */}
         {timeSlots.length > 0 && (
