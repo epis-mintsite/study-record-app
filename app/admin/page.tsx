@@ -109,10 +109,13 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/seed-demo-data', { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
-        const summary = (data.results as { userId: string; action: string; recordsInserted: number }[])
-          .map(r => `${r.userId}: ${r.action === 'created' ? '新規作成' : '既存'} / ${r.recordsInserted}件挿入`)
-          .join(' | ');
-        setSeedMsg(`✅ 完了 — ${summary}`);
+        const summary = (data.results as { userId: string; action: string; recordsInserted: number; reviewsInserted: number; reviewErrors: string[] }[])
+          .map(r => {
+            const base = `${r.userId}: ${r.action === 'created' ? '新規作成' : '既存'} / 学習${r.recordsInserted}件 振返${r.reviewsInserted}件`;
+            return r.reviewErrors?.length ? `${base} ⚠️エラー:${r.reviewErrors.join(', ')}` : base;
+          })
+          .join('\n');
+        setSeedMsg(`✅ 完了 — \n${summary}`);
         await loadUsers();
       } else {
         setSeedMsg(`❌ ${data.error}`);
@@ -289,7 +292,7 @@ export default function AdminPage() {
             </button>
           </div>
           {seedMsg && (
-            <div style={{ marginTop: '12px', fontSize: '12px', color: seedMsg.startsWith('✅') ? '#27ae60' : '#c0392b', lineHeight: 1.6 }}>
+            <div style={{ marginTop: '12px', fontSize: '12px', color: seedMsg.startsWith('✅') ? '#27ae60' : '#c0392b', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
               {seedMsg}
             </div>
           )}
