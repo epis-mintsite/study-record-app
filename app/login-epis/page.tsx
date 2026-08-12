@@ -107,16 +107,8 @@ export default function EpisLoginPage() {
         padding: '36px 32px',
       }}>
         {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '32px' }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-            <rect x="3" y="3" width="18" height="18" rx="3" fill="#0075de" />
-            <rect x="7" y="8" width="10" height="1.5" rx="0.75" fill="white" />
-            <rect x="7" y="11" width="7"  height="1.5" rx="0.75" fill="white" />
-            <rect x="7" y="14" width="8"  height="1.5" rx="0.75" fill="white" />
-          </svg>
-          <div style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(0,0,0,0.95)', letterSpacing: '-0.2px' }}>
-            まなびログ
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px' }}>
+          <img src="/wordmark.png" alt="まなびログ" style={{ height: '28px', width: 'auto', display: 'block' }} />
         </div>
 
         <h2 style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(0,0,0,0.85)', marginBottom: '20px' }}>
