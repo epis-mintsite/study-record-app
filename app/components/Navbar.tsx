@@ -64,17 +64,10 @@ export default function Navbar() {
         }}>
           {/* Logo */}
           <Link href="/weekly" style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            textDecoration: 'none', color: 'rgba(0,0,0,0.95)',
-            fontWeight: 700, fontSize: '15px', letterSpacing: '-0.2px', flexShrink: 0,
+            display: 'flex', alignItems: 'center',
+            textDecoration: 'none', flexShrink: 0,
           }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="3" width="18" height="18" rx="3" fill="#0075de" />
-              <rect x="7" y="8" width="10" height="1.5" rx="0.75" fill="white" />
-              <rect x="7" y="11" width="7" height="1.5" rx="0.75" fill="white" />
-              <rect x="7" y="14" width="8" height="1.5" rx="0.75" fill="white" />
-            </svg>
-            学習記録
+            <img src="/wordmark.png" alt="まなびログ" style={{ height: '22px', width: 'auto', display: 'block' }} />
           </Link>
 
           {/* Desktop nav items */}

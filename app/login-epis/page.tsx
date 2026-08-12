@@ -114,13 +114,8 @@ export default function EpisLoginPage() {
             <rect x="7" y="11" width="7"  height="1.5" rx="0.75" fill="white" />
             <rect x="7" y="14" width="8"  height="1.5" rx="0.75" fill="white" />
           </svg>
-          <div>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(0,0,0,0.95)', letterSpacing: '-0.2px', lineHeight: 1 }}>
-              まなびログ
-            </div>
-            <div style={{ fontSize: '12px', color: '#a39e98', marginTop: '2px' }}>
-              音声で記録する学習管理アプリ
-            </div>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(0,0,0,0.95)', letterSpacing: '-0.2px' }}>
+            まなびログ
           </div>
         </div>
 
