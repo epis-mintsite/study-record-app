@@ -262,7 +262,7 @@ export default function WeeklyPage() {
         )}
 
         <h1 style={{ fontSize: '26px', fontWeight: 700, color: 'rgba(0,0,0,0.95)', letterSpacing: '-0.625px', margin: '0 0 20px' }}>
-          まなびログ
+          週間スケジュール
         </h1>
 
         {/* Controls */}
