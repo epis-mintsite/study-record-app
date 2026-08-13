@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-const FADE_IN_MS = 550;
+const FADE_IN_MS = 1000;
 const HOLD_MS = 1000;
 const FADE_OUT_MS = 550;
 
