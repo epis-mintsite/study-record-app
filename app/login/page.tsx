@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
   const [showSplash, setShowSplash] = useState(true);
+  const [contentVisible, setContentVisible] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -97,7 +98,7 @@ export default function LoginPage() {
 
   return (
     <>
-      {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+      {showSplash && <SplashScreen onDone={() => { setShowSplash(false); setContentVisible(true); }} />}
       <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: '#f6f5f4', padding: '24px',
@@ -108,6 +109,9 @@ export default function LoginPage() {
         border: '1px solid rgba(0,0,0,0.1)',
         boxShadow: 'rgba(0,0,0,0.01) 0px 1px 3px, rgba(0,0,0,0.02) 0px 3px 7px, rgba(0,0,0,0.02) 0px 7px 15px, rgba(0,0,0,0.04) 0px 14px 28px, rgba(0,0,0,0.05) 0px 23px 52px',
         padding: '36px 32px',
+        opacity: contentVisible ? 1 : 0,
+        transform: contentVisible ? 'translateY(0)' : 'translateY(16px)',
+        transition: 'opacity 550ms ease, transform 550ms ease',
       }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '32px' }}>
