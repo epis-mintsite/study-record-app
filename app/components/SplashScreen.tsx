@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 const FADE_IN_MS = 550;
 const HOLD_MS = 1000;
-const FADE_OUT_MS = 1000;
+const FADE_OUT_MS = 2000;
 
 export default function SplashScreen({ onDone }: { onDone: () => void }) {
   const [phase, setPhase] = useState<'enter' | 'shown' | 'exit'>('enter');
