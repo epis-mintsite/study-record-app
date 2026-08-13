@@ -1,5 +1,5 @@
 import { createClient } from './supabase';
-import { StudyRecord, CustomCategory, TimeSlot, TestType, TestScore, TestResult, WeeklyReview, PastExamRecord, PastExamScore, ExamCategory, SchoolPassingScore } from './types';
+import { StudyRecord, CustomCategory, TimeSlot, TestType, TestScore, TestResult, WeeklyReview, PastExamRecord, PastExamScore, ExamCategory, SchoolPassingScore, LearningApp } from './types';
 import { computeDailyTotals } from './mockData';
 
 function isSupabaseConfigured(): boolean {
@@ -280,4 +280,53 @@ export async function getPassingScores(): Promise<SchoolPassingScore[]> {
     passingScore: row.passing_score,
     maxScore: row.max_score ?? undefined,
   }));
+}
+
+// ---- Learning Apps（外部の自作学習アプリ。閲覧のみ。登録/編集は /api/admin/learning-apps） ----
+
+function mapLearningApp(row: {
+  id: string; name: string; url: string; description: string | null;
+  icon: string | null; is_available: boolean; sort_order: number;
+}): LearningApp {
+  return {
+    id: row.id,
+    name: row.name,
+    url: row.url,
+    description: row.description ?? undefined,
+    icon: row.icon ?? undefined,
+    isAvailable: row.is_available,
+    sortOrder: row.sort_order,
+  };
+}
+
+/** 生徒向け：公開中のアプリ一覧。 */
+export async function getLearningApps(): Promise<LearningApp[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('learning_apps')
+    .select('*')
+    .eq('is_available', true)
+    .order('sort_order');
+  if (error) throw new Error(`学習アプリの取得エラー: ${error.message}`);
+  return (data ?? []).map(mapLearningApp);
+}
+
+/** 1件取得（非公開のものは返さない）。 */
+export async function getLearningApp(id: string): Promise<LearningApp | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createClient();
+  const { data, error } = await supabase.from('learning_apps').select('*').eq('id', id).maybeSingle();
+  if (error) throw new Error(`学習アプリの取得エラー: ${error.message}`);
+  if (!data || !data.is_available) return null;
+  return mapLearningApp(data);
+}
+
+/** 管理者向け：非公開も含む全アプリ。 */
+export async function getAllLearningApps(): Promise<LearningApp[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase.from('learning_apps').select('*').order('sort_order');
+  if (error) throw new Error(`学習アプリの取得エラー: ${error.message}`);
+  return (data ?? []).map(mapLearningApp);
 }

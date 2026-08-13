@@ -115,6 +115,18 @@ export type SchoolPassingScore = {
   maxScore?: number;
 };
 
+// ---- Learning Apps（外部の自作学習アプリを一覧・iframe埋め込み表示） ----
+
+export type LearningApp = {
+  id: string;
+  name: string;
+  url: string;
+  description?: string;
+  icon?: string;
+  isAvailable: boolean;
+  sortOrder: number;
+};
+
 // ---- Weekly Review ----
 
 export type WeeklyReview = {

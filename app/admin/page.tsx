@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { getUserRole } from '@/lib/db';
 import Link from 'next/link';
-import { LogOut, Users, Send, RefreshCw, Trophy, UserPlus, ChevronDown, ChevronUp, Loader2, Database, GraduationCap } from 'lucide-react';
+import { LogOut, Users, Send, RefreshCw, Trophy, UserPlus, ChevronDown, ChevronUp, Loader2, Database, GraduationCap, LayoutGrid } from 'lucide-react';
 import PushNotificationButton from '@/app/components/PushNotificationButton';
 
 type UserRow = {
@@ -344,6 +344,30 @@ export default function AdminPage() {
             </div>
             <Link
               href="/admin/passing-scores"
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '8px 16px', borderRadius: '8px',
+                background: '#0075de', color: '#ffffff',
+                fontSize: '13px', fontWeight: 600, textDecoration: 'none',
+              }}
+            >
+              管理画面を開く
+            </Link>
+          </div>
+        </div>
+
+        {/* 学習アプリの管理 */}
+        <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.08)', padding: '20px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <LayoutGrid size={16} color="#0075de" />
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>学習アプリの管理</div>
+                <div style={{ fontSize: '12px', color: '#a39e98', marginTop: '2px' }}>生徒の「学習アプリ」タブに表示する外部アプリを登録します</div>
+              </div>
+            </div>
+            <Link
+              href="/admin/learning-apps"
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
                 padding: '8px 16px', borderRadius: '8px',
