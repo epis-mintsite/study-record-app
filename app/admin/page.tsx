@@ -199,9 +199,9 @@ export default function AdminPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
               <rect x="3" y="3" width="18" height="18" rx="3" fill="#0075de" />
-              <rect x="7" y="8" width="10" height="1.5" rx="0.75" fill="white" />
-              <rect x="7" y="11" width="7"  height="1.5" rx="0.75" fill="white" />
-              <rect x="7" y="14" width="8"  height="1.5" rx="0.75" fill="white" />
+              <rect x="5.6" y="7" width="12.7" height="2" rx="1" fill="white" />
+              <rect x="5.6" y="11" width="8.9" height="2" rx="1" fill="white" />
+              <rect x="5.6" y="15" width="10.3" height="2" rx="1" fill="white" />
             </svg>
             <div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: 'rgba(0,0,0,0.95)' }}>管理者ダッシュボード</div>
