@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 const FADE_MS = 550;
-const HOLD_MS = 750;
+const HOLD_MS = 1000;
 
 export default function SplashScreen({ onDone }: { onDone: () => void }) {
   const [visible, setVisible] = useState(false);
