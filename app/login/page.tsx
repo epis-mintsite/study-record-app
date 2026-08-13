@@ -106,7 +106,8 @@ export default function LoginPage() {
         padding: '36px 32px',
       }}>
         {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '32px' }}>
+          <img src="/icon.png" alt="" style={{ height: '30px', width: '30px', display: 'block' }} />
           <img src="/wordmark.png" alt="まなびログ" style={{ height: '28px', width: 'auto', display: 'block' }} />
         </div>
 

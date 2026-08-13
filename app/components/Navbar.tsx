@@ -64,9 +64,10 @@ export default function Navbar() {
         }}>
           {/* Logo */}
           <Link href="/weekly" style={{
-            display: 'flex', alignItems: 'center',
+            display: 'flex', alignItems: 'center', gap: '8px',
             textDecoration: 'none', flexShrink: 0,
           }}>
+            <img src="/icon.png" alt="" style={{ height: '24px', width: '24px', display: 'block' }} />
             <img src="/wordmark.png" alt="まなびログ" style={{ height: '22px', width: 'auto', display: 'block' }} />
           </Link>
 
