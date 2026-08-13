@@ -7,12 +7,14 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirebaseAuth } from '@/lib/firebase';
 import { createClient } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
+import SplashScreen from '@/app/components/SplashScreen';
 
 export default function LoginPage() {
   const [userId, setUserId]     = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
+  const [showSplash, setShowSplash] = useState(true);
   const router = useRouter();
   const supabase = createClient();
 
@@ -94,7 +96,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{
+    <>
+      {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+      <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: '#f6f5f4', padding: '24px',
     }}>
@@ -183,5 +187,6 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
