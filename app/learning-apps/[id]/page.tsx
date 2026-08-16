@@ -9,7 +9,7 @@ import { LearningApp } from '@/lib/types';
 
 export default function LearningAppDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [app, setApp] = useState<LearningApp | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFoundApp, setNotFoundApp] = useState(false);
@@ -39,6 +39,22 @@ export default function LearningAppDetailPage({ params }: { params: Promise<{ id
     </div>
   );
 
+  // ログインIDを取得（email = "loginId@example.com" 形式）
+  const loginId = user?.email?.split('@')[0] ?? null;
+
+  // appのURLにuidパラメータを付与する
+  function buildAppUrl(baseUrl: string): string {
+    if (!loginId) return baseUrl;
+    try {
+      const url = new URL(baseUrl);
+      url.searchParams.set('uid', loginId);
+      return url.toString();
+    } catch {
+      const sep = baseUrl.includes('?') ? '&' : '?';
+      return `${baseUrl}${sep}uid=${encodeURIComponent(loginId)}`;
+    }
+  }
+
   if (notFoundApp || !app) return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
       <p style={{ fontSize: '14px', color: '#a39e98' }}>アプリが見つかりませんでした。</p>
@@ -66,7 +82,7 @@ export default function LearningAppDetailPage({ params }: { params: Promise<{ id
           {app.icon ?? '📘'} {app.name}
         </span>
         <a
-          href={app.url}
+          href={buildAppUrl(app.url)}
           target="_blank"
           rel="noopener noreferrer"
           style={{
@@ -80,7 +96,7 @@ export default function LearningAppDetailPage({ params }: { params: Promise<{ id
       </header>
 
       <iframe
-        src={app.url}
+        src={buildAppUrl(app.url)}
         title={app.name}
         style={{ flex: 1, minHeight: 0, width: '100%', border: 'none' }}
         sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals"
