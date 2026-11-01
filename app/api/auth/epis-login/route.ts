@@ -5,16 +5,27 @@ import { createAdminClient } from '@/lib/supabase-admin';
 // エピスAPIからuserTypeを取得
 async function getEpisUserType(episUserId: string, idToken: string): Promise<string | null> {
   const apiUrl = process.env.EPIS_API_URL;
-  if (!apiUrl) return null;
+  if (!apiUrl) {
+    console.error('[epis-userType] EPIS_API_URL が未設定のためロールを取得できません。');
+    return null;
+  }
 
   try {
     const res = await fetch(`${apiUrl}/users/${episUserId}`, {
       headers: { Authorization: `Bearer ${idToken}` },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`[epis-userType] エピスAPIがエラー応答: HTTP ${res.status}`);
+      return null;
+    }
     const json = await res.json();
-    return json?.data?.userType?.enUsertypeName ?? null;
-  } catch {
+    const name = json?.data?.userType?.enUsertypeName ?? null;
+    if (!name) {
+      console.error('[epis-userType] 応答に data.userType.enUsertypeName がありません。');
+    }
+    return name;
+  } catch (err) {
+    console.error('[epis-userType] エピスAPIへの接続に失敗:', err instanceof Error ? err.name : 'unknown');
     return null;
   }
 }
