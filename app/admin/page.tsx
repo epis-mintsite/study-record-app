@@ -45,6 +45,7 @@ export default function AdminPage() {
   const [demoPassword, setDemoPassword] = useState('');
   const [demoRole,     setDemoRole]     = useState<'student' | 'parent'>('student');
   const [demoName,     setDemoName]     = useState('');
+  const [demoLinkedStudentId, setDemoLinkedStudentId] = useState('');
   const [creating,     setCreating]     = useState(false);
   const [createMsg,    setCreateMsg]    = useState('');
 
@@ -140,14 +141,22 @@ export default function AdminPage() {
           password: demoPassword,
           role:     demoRole,
           name:     demoName.trim() || undefined,
+          linkedStudentId: demoRole === 'parent' && demoLinkedStudentId ? demoLinkedStudentId : undefined,
         }),
       });
       const data = await res.json();
       if (res.ok) {
-        setCreateMsg(`✅ 作成完了：${data.name || data.userId}（${demoRole === 'student' ? '生徒' : '保護者'}）　ID: ${data.userId}`);
+        const linkedName = data.linkedStudentId
+          ? users.find(u => u.id === data.linkedStudentId)?.name || '生徒'
+          : null;
+        setCreateMsg(
+          `✅ 作成完了：${data.name || data.userId}（${demoRole === 'student' ? '生徒' : '保護者'}）　ID: ${data.userId}` +
+          (linkedName ? `　紐付け先：${linkedName}` : ''),
+        );
         setDemoUserId('');
         setDemoPassword('');
         setDemoName('');
+        setDemoLinkedStudentId('');
         // 一覧を再取得
         await loadUsers();
       } else {
@@ -512,6 +521,26 @@ export default function AdminPage() {
                     </div>
                   </div>
                 </div>
+
+                {demoRole === 'parent' && (
+                  <div>
+                    <label htmlFor="demoLinkedStudent" style={labelStyle}>紐付ける生徒</label>
+                    <select
+                      id="demoLinkedStudent"
+                      value={demoLinkedStudentId}
+                      onChange={e => setDemoLinkedStudentId(e.target.value)}
+                      style={inputStyle}
+                    >
+                      <option value="">選択しない（あとで設定）</option>
+                      {students.map(s => (
+                        <option key={s.id} value={s.id}>{s.name || `（名前未設定）${s.id.slice(0, 8)}`}</option>
+                      ))}
+                    </select>
+                    <div style={{ fontSize: '11px', color: '#a39e98', marginTop: '4px' }}>
+                      選んだ生徒の学習記録を、この保護者が閲覧できるようになります
+                    </div>
+                  </div>
+                )}
 
                 <button
                   type="submit"

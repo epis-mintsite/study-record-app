@@ -22,11 +22,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. リクエスト値の取得・バリデーション
-    const { userId, password, role, name } = await req.json() as {
-      userId:   string;
-      password: string;
-      role:     'student' | 'parent';
-      name?:    string;
+    const { userId, password, role, name, linkedStudentId } = await req.json() as {
+      userId:           string;
+      password:         string;
+      role:             'student' | 'parent';
+      name?:            string;
+      linkedStudentId?: string;   // 保護者の場合：紐付ける生徒の users.id（任意）
     };
 
     if (!userId || !/^[a-zA-Z0-9]+$/.test(userId)) {
@@ -37,6 +38,23 @@ export async function POST(req: NextRequest) {
     }
     if (role !== 'student' && role !== 'parent') {
       return NextResponse.json({ error: '役割は student または parent を指定してください。' }, { status: 400 });
+    }
+
+    // 保護者の紐付け先が指定された場合は、実在する生徒かを事前に確認（アカウント作成前に弾く）
+    let linkedStudent: string | null = null;
+    if (linkedStudentId) {
+      if (role !== 'parent') {
+        return NextResponse.json({ error: '生徒との紐付けは保護者アカウントのみ指定できます。' }, { status: 400 });
+      }
+      const { data: studentRow } = await supabaseAdmin
+        .from('users')
+        .select('id, role')
+        .eq('id', linkedStudentId)
+        .single();
+      if (!studentRow || studentRow.role !== 'student') {
+        return NextResponse.json({ error: '紐付け先の生徒アカウントが見つかりません。' }, { status: 400 });
+      }
+      linkedStudent = studentRow.id;
     }
 
     const email = `${userId}@example.com`;
@@ -71,9 +89,11 @@ export async function POST(req: NextRequest) {
     const supabaseUid = newUser.user.id;
 
     // 5. users テーブルのロールと名前を設定
+    const updateData: Record<string, unknown> = { role, name: name?.trim() || null };
+    if (linkedStudent) updateData.linked_student_id = linkedStudent;
     await supabaseAdmin
       .from('users')
-      .update({ role, name: name?.trim() || null })
+      .update(updateData)
       .eq('id', supabaseUid);
 
     return NextResponse.json({
@@ -81,6 +101,7 @@ export async function POST(req: NextRequest) {
       userId,
       role,
       name:   name?.trim() || null,
+      linkedStudentId: linkedStudent,
     });
 
   } catch (err) {
