@@ -37,6 +37,8 @@ export default function AdminPage() {
 
   // デモデータシード
   const [seeding, setSeeding]   = useState(false);
+  // 日本時間の今月（デモデータの挿入先）
+  const currentMonth = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCMonth() + 1;
   const [seedMsg, setSeedMsg]   = useState('');
 
   // デモアカウント作成フォーム
@@ -113,11 +115,11 @@ export default function AdminPage() {
   }
 
   async function handleSeedDemoData() {
-    if (!confirm('デモユーザー（democ3・democ2・democ1）を作成し、8月分の学習記録を挿入します。\n既存の記録は上書きされます。よろしいですか？')) return;
+    if (!confirm(`デモユーザー（democ3・democ2・democ1）を作成し、${currentMonth}月分の学習記録を挿入します。\n既存の記録は上書きされます。よろしいですか？`)) return;
     setSeeding(true);
     setSeedMsg('');
     try {
-      const res = await fetch('/api/admin/seed-demo-data', { method: 'POST' });
+      const res = await fetch('/api/admin/seed-demo-data', { method: 'POST' });  // 今月（日本時間）の分
       const data = await res.json();
       if (res.ok) {
         const summary = (data.results as { userId: string; action: string; recordsInserted: number; reviewsInserted: number; reviewErrors: string[] }[])
@@ -410,9 +412,9 @@ export default function AdminPage() {
         <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.08)', padding: '20px', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>デモデータを挿入（8月分）</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>デモデータを挿入（{currentMonth}月分）</div>
               <div style={{ fontSize: '12px', color: '#a39e98', marginTop: '2px' }}>
-                中3・中2・中1の3人分のサンプル学習記録を一括作成します
+                中3・中2・中1の3人分のサンプル学習記録を一括作成します（毎月1日にも自動で挿入されます）
               </div>
             </div>
             <button
@@ -436,7 +438,7 @@ export default function AdminPage() {
           )}
           <div style={{ marginTop: '10px', padding: '10px 12px', background: '#f6f5f4', borderRadius: '6px', fontSize: '12px', color: '#615d59', lineHeight: 1.6 }}>
             <strong>作成されるアカウント</strong><br />
-            democ3 / Demo2026! — 田中 凛（中3）難関高校受験・夏期集中<br />
+            democ3 / Demo2026! — 田中 凛（中3）難関高校受験・5教科を毎日学習<br />
             democ2 / Demo2026! — 鈴木 蒼（中2）部活と両立・週3部活<br />
             democ1 / Demo2026! — 佐藤 陽（中1）マイペース・英数中心
           </div>
