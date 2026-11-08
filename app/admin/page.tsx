@@ -46,6 +46,10 @@ export default function AdminPage() {
   const [demoRole,     setDemoRole]     = useState<'student' | 'parent'>('student');
   const [demoName,     setDemoName]     = useState('');
   const [demoLinkedStudentId, setDemoLinkedStudentId] = useState('');
+
+  // 保護者と生徒の紐付け変更
+  const [linkingId, setLinkingId] = useState<string | null>(null);
+  const [linkMsg,   setLinkMsg]   = useState('');
   const [creating,     setCreating]     = useState(false);
   const [createMsg,    setCreateMsg]    = useState('');
 
@@ -166,6 +170,34 @@ export default function AdminPage() {
       setCreateMsg('❌ 作成に失敗しました。');
     } finally {
       setCreating(false);
+    }
+  }
+
+  // 保護者と生徒の紐付けを変更（空文字で解除）
+  async function handleLinkParent(parentId: string, studentId: string) {
+    setLinkingId(parentId);
+    setLinkMsg('');
+    try {
+      const res = await fetch('/api/admin/link-parent', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ parentId, studentId: studentId || null }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const parentName  = users.find(u => u.id === parentId)?.name || '保護者';
+        const studentName = users.find(u => u.id === studentId)?.name || '生徒';
+        setLinkMsg(studentId
+          ? `✅ ${parentName} を ${studentName} に紐付けました。`
+          : `✅ ${parentName} の紐付けを解除しました。`);
+        await loadUsers();
+      } else {
+        setLinkMsg(`❌ ${data.error}`);
+      }
+    } catch {
+      setLinkMsg('❌ 紐付けの更新に失敗しました。');
+    } finally {
+      setLinkingId(null);
     }
   }
 
@@ -584,11 +616,22 @@ export default function AdminPage() {
             </span>
           </div>
 
+          {linkMsg && (
+            <div style={{
+              padding: '10px 20px', fontSize: '13px',
+              background: linkMsg.startsWith('✅') ? '#f0fdf4' : '#fff5f5',
+              color: linkMsg.startsWith('✅') ? '#15803d' : '#c0392b',
+              borderBottom: '1px solid rgba(0,0,0,0.06)',
+            }}>
+              {linkMsg}
+            </div>
+          )}
+
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
                 <tr style={{ background: '#f9f8f7' }}>
-                  {['名前', '役割', '紐付け先生徒ID', '登録日'].map(h => (
+                  {['名前', '役割', '紐付け先の生徒', '登録日'].map(h => (
                     <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#615d59', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
@@ -623,10 +666,27 @@ export default function AdminPage() {
                         {roleLabel[u.role] ?? u.role}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 16px', color: '#a39e98', fontFamily: 'monospace', fontSize: '11px' }}>
-                      {u.linked_student_id
-                        ? u.linked_student_id.slice(0, 8) + '...'
-                        : <span style={{ color: '#dddddd' }}>—</span>}
+                    <td style={{ padding: '12px 16px' }}>
+                      {u.role === 'parent' ? (
+                        <select
+                          aria-label={`${u.name || '保護者'}の紐付け先の生徒`}
+                          value={u.linked_student_id ?? ''}
+                          disabled={linkingId === u.id}
+                          onChange={e => handleLinkParent(u.id, e.target.value)}
+                          style={{
+                            ...inputStyle, width: 'auto', minWidth: '160px',
+                            padding: '5px 8px', fontSize: '13px',
+                            color: u.linked_student_id ? 'rgba(0,0,0,0.85)' : '#c0392b',
+                          }}
+                        >
+                          <option value="">未設定</option>
+                          {students.map(s => (
+                            <option key={s.id} value={s.id}>{s.name || `（名前未設定）${s.id.slice(0, 8)}`}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span style={{ color: '#dddddd' }}>—</span>
+                      )}
                     </td>
                     <td style={{ padding: '12px 16px', color: '#a39e98', whiteSpace: 'nowrap' }}>
                       {new Date(u.created_at).toLocaleDateString('ja-JP')}
