@@ -57,12 +57,15 @@ export default function AdminPage() {
   const supabase = createClient();
 
   async function loadUsers() {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) { setError('ユーザー取得に失敗しました。'); }
-    else        { setUsers(data ?? []); }
+    // users テーブルはRLSで自分の行しか読めないため、管理者用APIから全件取得する
+    try {
+      const res = await fetch('/api/admin/users');
+      const json = await res.json();
+      if (!res.ok) { setError(json.error || 'ユーザー取得に失敗しました。'); return; }
+      setUsers(json.users ?? []);
+    } catch {
+      setError('ユーザー取得に失敗しました。');
+    }
   }
 
   useEffect(() => {
