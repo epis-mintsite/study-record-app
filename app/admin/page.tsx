@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { getUserRole } from '@/lib/db';
 import Link from 'next/link';
-import { LogOut, Users, Send, RefreshCw, Trophy, UserPlus, ChevronDown, ChevronUp, Loader2, Database, GraduationCap, LayoutGrid } from 'lucide-react';
+import { LogOut, Users, Send, RefreshCw, Trophy, UserPlus, ChevronDown, ChevronUp, Loader2, Database, GraduationCap, LayoutGrid, BookOpen } from 'lucide-react';
 import PushNotificationButton from '@/app/components/PushNotificationButton';
 
 type UserRow = {
@@ -239,6 +239,40 @@ export default function AdminPage() {
               <div style={{ fontSize: '13px', color: '#615d59', marginTop: '4px' }}>{label}</div>
             </div>
           ))}
+        </div>
+
+        {/* 先生向けガイド */}
+        <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid rgba(0,0,0,0.08)', padding: '20px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <BookOpen size={16} color="#0B6E7D" />
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(0,0,0,0.85)' }}>先生向けガイド</div>
+                <div style={{ fontSize: '12px', color: '#a39e98', marginTop: '2px' }}>管理機能の紹介と使い方をご覧いただけます</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {[
+                { label: '機能紹介',   href: 'https://claude.ai/code/artifact/fc73a69e-7e54-4fb3-99df-5ba96de77ff0' },
+                { label: '使い方ガイド', href: 'https://claude.ai/code/artifact/2ed6d771-3c4b-4f8c-b982-dd3c983d9d35' },
+              ].map(({ label, href }) => (
+                <a
+                  key={label}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '8px 16px', borderRadius: '8px',
+                    background: '#0B6E7D', color: '#ffffff',
+                    fontSize: '13px', fontWeight: 600, textDecoration: 'none',
+                  }}
+                >
+                  <BookOpen size={14} /> {label}
+                </a>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* ランキング・通知 */}

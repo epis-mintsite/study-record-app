@@ -191,24 +191,24 @@ export default function LoginPage() {
 
           <div style={{ marginTop: '14px' }}>
             <p style={{ fontSize: '11px', color: '#a39e98', margin: '0 0 6px' }}>
-              先生・管理者の方へ
+              はじめての方へ
             </p>
             <div style={{ display: 'flex', gap: '14px', justifyContent: 'center' }}>
               <a
-                href="https://claude.ai/code/artifact/fc73a69e-7e54-4fb3-99df-5ba96de77ff0"
+                href="https://claude.ai/code/artifact/04b6a083-d5af-41e3-89c9-a6c9e2856122"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ fontSize: '12px', color: '#0075de', textDecoration: 'none', fontWeight: 500 }}
               >
-                🧑‍🏫 機能紹介
+                ✨ 機能紹介
               </a>
               <a
-                href="https://claude.ai/code/artifact/2ed6d771-3c4b-4f8c-b982-dd3c983d9d35"
+                href="https://claude.ai/code/artifact/64db795a-40ef-4881-a506-3308aa473a75"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ fontSize: '12px', color: '#0075de', textDecoration: 'none', fontWeight: 500 }}
               >
-                🧑‍🏫 使い方ガイド
+                🚀 使い方ガイド
               </a>
             </div>
           </div>
