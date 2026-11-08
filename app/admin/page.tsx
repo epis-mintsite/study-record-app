@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { getUserRole } from '@/lib/db';
 import Link from 'next/link';
-import { LogOut, Users, Send, RefreshCw, Trophy, UserPlus, ChevronDown, ChevronUp, Loader2, Database, GraduationCap, LayoutGrid, BookOpen } from 'lucide-react';
+import { LogOut, Users, Send, RefreshCw, Trophy, UserPlus, ChevronDown, ChevronUp, Loader2, Database, GraduationCap, LayoutGrid, BookOpen, Trash2 } from 'lucide-react';
 import PushNotificationButton from '@/app/components/PushNotificationButton';
 
 type UserRow = {
@@ -49,7 +49,9 @@ export default function AdminPage() {
 
   // 保護者と生徒の紐付け変更
   const [linkingId, setLinkingId] = useState<string | null>(null);
-  const [linkMsg,   setLinkMsg]   = useState('');
+  const [actingId,  setActingId]  = useState<string | null>(null);
+  const [listMsg,   setListMsg]   = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [creating,     setCreating]     = useState(false);
   const [createMsg,    setCreateMsg]    = useState('');
 
@@ -75,6 +77,7 @@ export default function AdminPage() {
       if (!user) { router.replace('/login-epis'); return; }
       const role = await getUserRole(user.id);
       if (role !== 'admin') { router.replace('/weekly'); return; }
+      setCurrentUserId(user.id);
 
       await loadUsers();
       setLoading(false);
@@ -179,7 +182,7 @@ export default function AdminPage() {
   // 保護者と生徒の紐付けを変更（空文字で解除）
   async function handleLinkParent(parentId: string, studentId: string) {
     setLinkingId(parentId);
-    setLinkMsg('');
+    setListMsg('');
     try {
       const res = await fetch('/api/admin/link-parent', {
         method:  'POST',
@@ -190,17 +193,74 @@ export default function AdminPage() {
       if (res.ok) {
         const parentName  = users.find(u => u.id === parentId)?.name || '保護者';
         const studentName = users.find(u => u.id === studentId)?.name || '生徒';
-        setLinkMsg(studentId
+        setListMsg(studentId
           ? `✅ ${parentName} を ${studentName} に紐付けました。`
           : `✅ ${parentName} の紐付けを解除しました。`);
         await loadUsers();
       } else {
-        setLinkMsg(`❌ ${data.error}`);
+        setListMsg(`❌ ${data.error}`);
       }
     } catch {
-      setLinkMsg('❌ 紐付けの更新に失敗しました。');
+      setListMsg('❌ 紐付けの更新に失敗しました。');
     } finally {
       setLinkingId(null);
+    }
+  }
+
+  // 役割を変更
+  async function handleChangeRole(target: UserRow, newRole: string) {
+    if (newRole === target.role) return;
+    const name = target.name || '（名前未設定）';
+    if (!confirm(
+      `${name} の役割を「${roleLabel[target.role] ?? target.role}」から「${roleLabel[newRole] ?? newRole}」に変更します。\n\n` +
+      '※ エピスミントサイトのアカウントは、次回ログイン時にミントサイト側の種別で役割が更新される場合があります。\n' +
+      '※ 保護者でなくなる場合は、生徒との紐付けも解除されます。\n\nよろしいですか？'
+    )) return;
+    setActingId(target.id);
+    setListMsg('');
+    try {
+      const res = await fetch(`/api/admin/users/${target.id}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ role: newRole }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setListMsg(`✅ ${name} の役割を「${roleLabel[newRole] ?? newRole}」に変更しました。`);
+        await loadUsers();
+      } else {
+        setListMsg(`❌ ${data.error}`);
+      }
+    } catch {
+      setListMsg('❌ 役割の変更に失敗しました。');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  // ユーザーを削除
+  async function handleDeleteUser(target: UserRow) {
+    const name = target.name || '（名前未設定）';
+    if (!confirm(
+      `${name}（${roleLabel[target.role] ?? target.role}）を削除します。\n\n` +
+      '学習記録・テスト成績・過去問演習・振返りなど、このユーザーのデータもすべて削除され、元に戻せません。\n' +
+      '※ エピスミントサイト側のアカウントは削除されません。再度ログインすると、新しい空のアカウントとして登録されます。\n\n本当に削除しますか？'
+    )) return;
+    setActingId(target.id);
+    setListMsg('');
+    try {
+      const res = await fetch(`/api/admin/users/${target.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        setListMsg(`✅ ${name} を削除しました。`);
+        await loadUsers();
+      } else {
+        setListMsg(`❌ ${data.error}`);
+      }
+    } catch {
+      setListMsg('❌ ユーザーの削除に失敗しました。');
+    } finally {
+      setActingId(null);
     }
   }
 
@@ -619,14 +679,14 @@ export default function AdminPage() {
             </span>
           </div>
 
-          {linkMsg && (
+          {listMsg && (
             <div style={{
               padding: '10px 20px', fontSize: '13px',
-              background: linkMsg.startsWith('✅') ? '#f0fdf4' : '#fff5f5',
-              color: linkMsg.startsWith('✅') ? '#15803d' : '#c0392b',
+              background: listMsg.startsWith('✅') ? '#f0fdf4' : '#fff5f5',
+              color: listMsg.startsWith('✅') ? '#15803d' : '#c0392b',
               borderBottom: '1px solid rgba(0,0,0,0.06)',
             }}>
-              {linkMsg}
+              {listMsg}
             </div>
           )}
 
@@ -634,7 +694,7 @@ export default function AdminPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
                 <tr style={{ background: '#f9f8f7' }}>
-                  {['名前', '役割', '紐付け先の生徒', '登録日'].map(h => (
+                  {['名前', '役割', '紐付け先の生徒', '登録日', '操作'].map(h => (
                     <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, color: '#615d59', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
@@ -693,6 +753,42 @@ export default function AdminPage() {
                     </td>
                     <td style={{ padding: '12px 16px', color: '#a39e98', whiteSpace: 'nowrap' }}>
                       {new Date(u.created_at).toLocaleDateString('ja-JP')}
+                    </td>
+                    <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                      {u.id === currentUserId ? (
+                        <span style={{ fontSize: '12px', color: '#a39e98' }}>（ログイン中）</span>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <select
+                            aria-label={`${u.name || 'ユーザー'}の役割を変更`}
+                            value={u.role}
+                            disabled={actingId === u.id}
+                            onChange={e => handleChangeRole(u, e.target.value)}
+                            style={{ ...inputStyle, width: 'auto', padding: '5px 8px', fontSize: '13px' }}
+                          >
+                            <option value="student">生徒</option>
+                            <option value="parent">保護者</option>
+                            <option value="admin">管理者</option>
+                          </select>
+                          <button
+                            type="button"
+                            aria-label={`${u.name || 'ユーザー'}を削除`}
+                            disabled={actingId === u.id || u.role === 'admin'}
+                            title={u.role === 'admin' ? '管理者は、先に役割を変更してから削除できます' : '削除'}
+                            onClick={() => handleDeleteUser(u)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '4px',
+                              padding: '5px 10px', borderRadius: '6px',
+                              border: '1px solid rgba(192,57,43,0.3)', background: '#ffffff',
+                              color: u.role === 'admin' ? '#dddddd' : '#c0392b',
+                              fontSize: '12px', fontFamily: 'inherit',
+                              cursor: actingId === u.id || u.role === 'admin' ? 'default' : 'pointer',
+                            }}
+                          >
+                            <Trash2 size={13} /> 削除
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
