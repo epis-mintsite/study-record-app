@@ -74,7 +74,7 @@ export default function LearningAppsPage() {
                     {app.name}
                   </span>
                   {app.description && (
-                    <span style={{ display: 'block', fontSize: '12px', color: '#a39e98', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ display: '-webkit-box', fontSize: '12px', color: '#a39e98', marginTop: '2px', overflow: 'hidden', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>
                       {app.description}
                     </span>
                   )}
