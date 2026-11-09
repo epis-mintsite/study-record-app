@@ -8,11 +8,7 @@ import WeeklyGrid from '@/app/components/WeeklyGrid';
 import { getWeekDates, formatDate } from '@/lib/mockData';
 import { StudyRecord, TestResult, WeeklyReview, TEST_TYPE_COLORS, PastExamRecord, SchoolPassingScore, ExamCategory } from '@/lib/types';
 import { useAuth } from '@/lib/useAuth';
-import {
-  getUserRole, getStudentProfile,
-  getStudyRecords, getTestResults, getWeeklyReview, getCustomCategories,
-  getPastExamRecords, getPassingScores,
-} from '@/lib/db';
+import { getUserRole, getPassingScores } from '@/lib/db';
 import { CustomCategory } from '@/lib/types';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
@@ -36,6 +32,15 @@ function pct(score?: number, max?: number) {
 function fmtTime(min: number) {
   const h = Math.floor(min / 60), m = min % 60;
   return h > 0 ? `${h}時間${m > 0 ? m + '分' : ''}` : `${m}分`;
+}
+
+// 管理者は他人の行を直接読めない（RLS）ため、service_role を使うAPI経由で取得する
+async function adminApi<T>(studentId: string, kind: string, params: Record<string, string> = {}): Promise<T> {
+  const qs = new URLSearchParams({ kind, ...params });
+  const res = await fetch(`/api/admin/students/${studentId}?${qs}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? `取得に失敗しました（${res.status}）`);
+  return data as T;
 }
 
 export default function AdminStudentPage({ params }: { params: Promise<{ studentId: string }> }) {
@@ -74,8 +79,10 @@ export default function AdminStudentPage({ params }: { params: Promise<{ student
     if (!user) { router.replace('/login'); return; }
     getUserRole(user.id).then(async role => {
       if (role !== 'admin') { router.replace('/weekly'); return; }
-      const profile = await getStudentProfile(studentId);
-      setStudentName(profile?.name ?? '');
+      try {
+        const { profile } = await adminApi<{ profile: { name: string } | null }>(studentId, 'profile');
+        setStudentName(profile?.name ?? '');
+      } catch (e) { console.error(e); }
       setReady(true);
     });
   }, [user, authLoading, router, studentId]);
@@ -85,9 +92,9 @@ export default function AdminStudentPage({ params }: { params: Promise<{ student
     setDataLoading(true);
     try {
       const dateStrings = dates.map(formatDate);
-      const [records, cats] = await Promise.all([
-        getStudyRecords(studentId, dateStrings),
-        getCustomCategories(studentId),
+      const [{ records }, { categories: cats }] = await Promise.all([
+        adminApi<{ records: StudyRecord[] }>(studentId, 'records', { dates: dateStrings.join(',') }),
+        adminApi<{ categories: CustomCategory[] }>(studentId, 'categories'),
       ]);
       setWeekRecords(records);
       setCategories(cats);
@@ -98,10 +105,10 @@ export default function AdminStudentPage({ params }: { params: Promise<{ student
   // ---- Load test results & review ----
   const loadStaticData = useCallback(async () => {
     try {
-      const [tests, rev, exams, scores] = await Promise.all([
-        getTestResults(studentId),
-        getWeeklyReview(studentId, weekStart),
-        getPastExamRecords(studentId),
+      const [{ tests }, { review: rev }, { exams }, scores] = await Promise.all([
+        adminApi<{ tests: TestResult[] }>(studentId, 'tests'),
+        adminApi<{ review: WeeklyReview | null }>(studentId, 'review', { weekStart }),
+        adminApi<{ exams: PastExamRecord[] }>(studentId, 'exams'),
         getPassingScores(),
       ]);
       setTestResults(tests);
@@ -120,7 +127,7 @@ export default function AdminStudentPage({ params }: { params: Promise<{ student
         const d = new Date(today); d.setDate(d.getDate() - i);
         allDates.push(formatDate(d));
       }
-      const records = await getStudyRecords(studentId, allDates);
+      const { records } = await adminApi<{ records: StudyRecord[] }>(studentId, 'records', { dates: allDates.join(',') });
       const weeks = [3, 2, 1, 0].map(wk => {
         const startIdx = wk * 7;
         const slice = allDates.slice(startIdx, startIdx + 7);

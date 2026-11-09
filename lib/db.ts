@@ -2,14 +2,17 @@ import { createClient } from './supabase';
 import { StudyRecord, CustomCategory, TimeSlot, TestType, TestScore, TestResult, WeeklyReview, PastExamRecord, PastExamScore, ExamCategory, SchoolPassingScore, LearningApp } from './types';
 import { computeDailyTotals } from './mockData';
 
+// 管理者用API（service_role）など、ブラウザ用以外のクライアントを渡せるようにする
+type DbClient = ReturnType<typeof createClient>;
+
 function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
   return url.length > 0 && url !== 'your_supabase_project_url';
 }
 
-export async function getStudyRecords(userId: string, dates: string[]): Promise<StudyRecord[]> {
+export async function getStudyRecords(userId: string, dates: string[], client?: DbClient): Promise<StudyRecord[]> {
   if (!isSupabaseConfigured()) return [];
-  const supabase = createClient();
+  const supabase = client ?? createClient();
   const { data, error } = await supabase
     .from('study_records')
     .select('*')
@@ -41,9 +44,9 @@ export async function upsertStudyRecord(
   if (error) throw new Error(`保存エラー: ${error.message}`);
 }
 
-export async function getCustomCategories(userId: string): Promise<CustomCategory[]> {
+export async function getCustomCategories(userId: string, client?: DbClient): Promise<CustomCategory[]> {
   if (!isSupabaseConfigured()) return [];
-  const supabase = createClient();
+  const supabase = client ?? createClient();
   const { data, error } = await supabase
     .from('categories')
     .select('*')
@@ -93,9 +96,9 @@ export async function getLinkedStudentId(parentId: string): Promise<string | nul
   return data.linked_student_id ?? null;
 }
 
-export async function getStudentProfile(studentId: string): Promise<{ name: string } | null> {
+export async function getStudentProfile(studentId: string, client?: DbClient): Promise<{ name: string } | null> {
   if (!isSupabaseConfigured()) return null;
-  const supabase = createClient();
+  const supabase = client ?? createClient();
   const { data, error } = await supabase
     .from('users')
     .select('name')
@@ -119,9 +122,9 @@ export async function getUserRole(userId: string): Promise<'student' | 'parent' 
 
 // ---- Test Results ----
 
-export async function getTestResults(userId: string): Promise<TestResult[]> {
+export async function getTestResults(userId: string, client?: DbClient): Promise<TestResult[]> {
   if (!isSupabaseConfigured()) return [];
-  const supabase = createClient();
+  const supabase = client ?? createClient();
   const { data, error } = await supabase
     .from('test_results')
     .select('*')
@@ -166,9 +169,9 @@ export async function deleteTestResult(id: string): Promise<void> {
 
 // ---- Weekly Reviews ----
 
-export async function getWeeklyReview(userId: string, weekStart: string): Promise<WeeklyReview | null> {
+export async function getWeeklyReview(userId: string, weekStart: string, client?: DbClient): Promise<WeeklyReview | null> {
   if (!isSupabaseConfigured()) return null;
-  const supabase = createClient();
+  const supabase = client ?? createClient();
   const { data, error } = await supabase
     .from('weekly_reviews')
     .select('*')
@@ -213,9 +216,9 @@ export async function upsertWeeklyReview(
 
 // ---- Past Exam Records（過去問演習） ----
 
-export async function getPastExamRecords(userId: string): Promise<PastExamRecord[]> {
+export async function getPastExamRecords(userId: string, client?: DbClient): Promise<PastExamRecord[]> {
   if (!isSupabaseConfigured()) return [];
-  const supabase = createClient();
+  const supabase = client ?? createClient();
   const { data, error } = await supabase
     .from('past_exam_records')
     .select('*')
